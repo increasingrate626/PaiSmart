@@ -1,0 +1,48 @@
+# Copy this file to an untracked local profile or set environment variables
+# before running PaiSmart. Do not commit real credentials.
+
+spring:
+  datasource:
+    url: ${PAISMART_DB_URL:jdbc:mysql://localhost:3306/PaiSmart?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true}
+    username: ${PAISMART_DB_USERNAME:root}
+    password: ${PAISMART_DB_PASSWORD:changeme}
+  data:
+    redis:
+      host: ${PAISMART_REDIS_HOST:localhost}
+      port: ${PAISMART_REDIS_PORT:6379}
+      password: ${PAISMART_REDIS_PASSWORD:}
+
+minio:
+  endpoint: ${PAISMART_MINIO_ENDPOINT:http://localhost:9000}
+  accessKey: ${PAISMART_MINIO_ACCESS_KEY:changeme}
+  secretKey: ${PAISMART_MINIO_SECRET_KEY:changeme}
+  bucketName: ${PAISMART_MINIO_BUCKET:uploads}
+  publicUrl: ${PAISMART_MINIO_PUBLIC_URL:http://localhost:9000}
+
+jwt:
+  secret-key: ${PAISMART_JWT_SECRET:change-me-with-a-strong-random-secret}
+
+admin:
+  username: ${PAISMART_ADMIN_USERNAME:admin}
+  password: ${PAISMART_ADMIN_PASSWORD:changeme}
+
+elasticsearch:
+  host: ${PAISMART_ES_HOST:localhost}
+  port: ${PAISMART_ES_PORT:9200}
+  scheme: ${PAISMART_ES_SCHEME:https}
+  username: ${PAISMART_ES_USERNAME:elastic}
+  password: ${PAISMART_ES_PASSWORD:changeme}
+
+deepseek:
+  api:
+    url: ${DEEPSEEK_API_URL:https://api.deepseek.com/v1}
+    model: ${DEEPSEEK_API_MODEL:deepseek-chat}
+    key: ${DEEPSEEK_API_KEY:}
+
+embedding:
+  api:
+    url: ${DASHSCOPE_API_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+    key: ${DASHSCOPE_API_KEY:}
+    model: ${DASHSCOPE_EMBEDDING_MODEL:text-embedding-v4}
+    batch-size: ${DASHSCOPE_EMBEDDING_BATCH_SIZE:10}
+    dimension: ${DASHSCOPE_EMBEDDING_DIMENSION:2048}
