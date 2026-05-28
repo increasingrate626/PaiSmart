@@ -4,7 +4,11 @@ This file provides guidance to Codex and other coding agents when working in thi
 
 ## Project Overview
 
-PaiSmart (派聪明) is an enterprise AI knowledge management system built around RAG. The backend ingests documents, parses and chunks them, generates DashScope embeddings, writes searchable records into Elasticsearch, and answers user questions by streaming DeepSeek responses over WebSocket. The frontend is a Vue 3 admin-style application with upload, knowledge-base, chat, auth, route, and theme modules.
+PaiSmart is a distributed SCA software security vulnerability detection platform. The intended product direction is high-concurrency scanning for 100k+ open-source components plus LLM-assisted vulnerability remediation Q&A. The system is also used as a research and implementation ground for microservice high-availability governance, including rate limiting, degradation, transactional consistency, and RAG/Agentic RAG answer pipelines.
+
+The current codebase still contains a general enterprise knowledge-base UI and document-ingestion pipeline, but agents should interpret RAG work through the SCA domain: component inventories, SBOMs, CVEs, vulnerable version ranges, fixed versions, remediation plans, license/security policies, scan reports, and historical remediation evidence.
+
+The backend ingests documents, parses and chunks them, generates DashScope embeddings, writes searchable records into Elasticsearch, and answers user questions by streaming DeepSeek responses over WebSocket. The frontend is a Vue 3 admin-style application with upload, knowledge-base, chat, auth, route, and theme modules.
 
 The most important system boundary is the RAG pipeline:
 
@@ -13,8 +17,17 @@ The most important system boundary is the RAG pipeline:
 3. Vectorize chunks through DashScope.
 4. Store metadata in MySQL and searchable vectors/text in Elasticsearch.
 5. Search with permission filtering.
-6. Stream a cited answer through the chat WebSocket.
-7. Persist recent conversation state in Redis.
+6. Run a bounded Agentic RAG orchestration layer.
+7. Stream a cited answer through the chat WebSocket.
+8. Persist recent conversation state in Redis.
+
+For SCA remediation Q&A, the target Agentic RAG flow should answer questions such as:
+
+- Whether a component/version is affected by a CVE.
+- Which fixed version or mitigation path is available.
+- Whether the dependency is direct or transitive and how to locate the import path.
+- Whether a finding may be a false positive based on project context.
+- What remediation guidance should be shown to developers, SecOps, or managers.
 
 ## Development Commands
 
@@ -28,6 +41,12 @@ mvn spring-boot:run -Dspring-boot.run.profiles=dev
 mvn clean package
 mvn test
 mvn test -Dtest=UserServiceTest
+```
+
+On this local Windows machine, Maven dependencies should stay on D drive:
+
+```powershell
+& "C:\Users\Administrator\tools\apache-maven-3.9.10\bin\mvn.cmd" "-Dmaven.repo.local=D:\PaiSmart-deps\maven-repository" test
 ```
 
 ### Frontend
@@ -46,6 +65,8 @@ pnpm preview
 
 Frontend dev server runs on port `9527`; preview runs on `9725`.
 
+On this local Windows machine, pnpm/npm caches should stay on D drive. Do not commit machine-specific cache paths in `frontend/.npmrc`.
+
 ### Infrastructure
 
 ```bash
@@ -54,6 +75,14 @@ docker-compose up -d
 ```
 
 The compose stack is expected to provide MySQL, Redis, MinIO, Kafka, and Elasticsearch.
+
+Current local Docker defaults used during verification:
+
+- MySQL: `localhost:3306`, root password `changeme`, database `paismart`
+- Redis: `localhost:6379`, password `changeme`
+- Kafka: `localhost:9092`
+- MinIO: `localhost:19000`, user `admin`, password `changeme`, bucket `uploads`
+- Elasticsearch: `localhost:9200`, user `elastic`, password `changeme`, scheme `http`
 
 ## Backend Structure
 
@@ -64,7 +93,7 @@ client/       External AI clients, including DeepSeekClient and EmbeddingClient
 config/       Spring Security, JWT, WebSocket, Kafka, ES, MinIO, Redis config
 consumer/     Kafka file-processing consumers
 controller/   REST endpoints for auth, users, upload, documents, parse, chat, search, admin
-entity/       DTOs and value objects such as EsDocument, Message, SearchRequest, TextChunk
+entity/       DTOs and value objects, including Agentic RAG request/result/trace DTOs
 handler/      WebSocket handlers, especially ChatWebSocketHandler
 model/        JPA entities such as User, FileUpload, ChunkInfo, Conversation, DocumentVector
 repository/   Spring Data repositories and RedisRepository
@@ -77,8 +106,10 @@ utils/        JWT, logging, password, and MinIO migration helpers
 
 | Service | Responsibility |
 |---|---|
-| `ChatHandler` | Orchestrates chat RAG: conversation history, search, DeepSeek streaming, Redis history |
+| `ChatHandler` | Orchestrates chat RAG: conversation history, Agentic RAG, DeepSeek streaming, Redis history, reference mapping |
+| `AgenticRagService` | Bounded Agentic RAG state machine: planning, permissioned search, evidence evaluation, optional rewrite/research, context budgeting |
 | `HybridSearchService` | Combines vector recall, keyword matching, BM25 rescore, and permission filters |
+| `DeepSeekClient` | Streams final answers and provides non-streaming JSON completion for planner/evaluator steps |
 | `VectorizationService` | Chunks text, calls `EmbeddingClient`, writes vectors into Elasticsearch |
 | `ParseService` | Parses files with Apache Tika, chunks text, persists `ChunkInfo` rows |
 | `UploadService` | Handles chunked upload, MD5 deduplication, MinIO storage, Kafka task publishing |
@@ -98,7 +129,7 @@ utils/        JWT, logging, password, and MinIO migration helpers
 
 When changing upload, parse, or vectorization code, verify the whole chain instead of only one service. A local unit test can prove a parser branch, but the real behavior also depends on Kafka, MinIO, MySQL, and Elasticsearch mappings.
 
-## RAG Chat Flow
+## Agentic RAG Chat Flow
 
 WebSocket entrypoint: `/chat/{jwtToken}`. In frontend development this is proxied through `/proxy-ws/chat/{token}` to `ws://localhost:8081`.
 
@@ -108,11 +139,18 @@ WebSocket entrypoint: `/chat/{jwtToken}`. In frontend development this is proxie
 4. User sends plain text.
 5. `ChatHandler.processMessage()` retrieves or creates the Redis current conversation key: `user:{username}:current_conversation`.
 6. It loads recent history from `conversation:{conversationId}`.
-7. It calls `HybridSearchService.searchWithPermission()` and normally takes the top 5 results.
-8. It builds cited context in the form `[N] (filename | MD5:hash) snippet...`.
-9. It streams DeepSeek output as `{"chunk":"..."}` messages.
-10. It sends a completion message such as `{"type":"completion","status":"finished",...}`.
-11. It updates Redis conversation history with a 7-day TTL.
+7. It calls `AgenticRagService.run()` with `userId`, message, history, and `sessionId`.
+8. `AgenticRagService` executes a fixed, bounded state machine: `PLAN_QUERY -> SEARCH -> EVALUATE_EVIDENCE -> OPTIONAL_REWRITE_AND_RESEARCH -> FINAL_CONTEXT`.
+9. Planner/evaluator steps use `DeepSeekClient.completeJson(...)`. JSON failures, timeouts, or planner failures must degrade to ordinary RAG instead of breaking chat.
+10. All retrieval must continue to call `HybridSearchService.searchWithPermission()`. Never bypass the owner/public/org-tag permission filter.
+11. `AgenticRagService` merges, deduplicates, ranks, and truncates evidence within the configured context budget.
+12. It builds cited context in the form `[N] (filename | MD5:hash) snippet...` and returns `referenceMapping`.
+13. `ChatHandler` saves `sessionId -> referenceNumber -> fileMd5`.
+14. It streams DeepSeek output as `{"chunk":"..."}` messages.
+15. It sends a completion message such as `{"type":"completion","status":"finished",...}`.
+16. It updates Redis conversation history with a 7-day TTL.
+
+Citation click-through depends on `/api/v1/documents/reference-md5?sessionId=...&referenceNumber=N`. A response can look correct while references fail if the session ID or reference numbering contract changes.
 
 The stop button sends a payload containing:
 
@@ -154,7 +192,7 @@ Important defaults:
 
 - Backend port: `8081`
 - API base path: `/api/v1`
-- Database: MySQL 8 database `PaiSmart`
+- Database: MySQL 8 database `PaiSmart` / local Docker database `paismart`
 - JPA DDL mode: update
 - Kafka topic: `file-processing-topic1`
 - Kafka DLT topic: `file-processing-dlt`
@@ -169,7 +207,11 @@ Important defaults:
 - Embedding batch size: `10`
 - Elasticsearch index: `knowledge_base`
 - Default admin username: `admin`; password comes from `PAISMART_ADMIN_PASSWORD`
-- System prompt requires Simplified Chinese, conclusion-first answers, and citations like `(来源#N: filename)`
+- System prompt requires Simplified Chinese, conclusion-first answers, and citations like `(source#N: filename)` / `(来源#N: filename)`
+- Agentic RAG can be toggled with `ai.agentic.enabled` / `PAISMART_AGENTIC_RAG_ENABLED`
+- Agentic RAG default limits: max search rounds `2`, first round topK `12`, rewrite round topK `8`, max subqueries `4`, max context chars `1600`
+
+Do not commit real API keys. Local machine secrets should stay in ignored files such as `src/main/resources/application-local.yml`, or in environment variables. `application-local.yml` is intentionally ignored by `.gitignore`.
 
 Frontend environment files:
 
@@ -230,6 +272,44 @@ It captures `sessionId` from the first `connection` message. That session ID is 
 
 When changing chat, verify both message streaming and citation lookup. A response can look correct while references fail if the session ID or reference numbering contract changes.
 
+## Observability And Traceability
+
+Current logs are useful for local troubleshooting but are not yet full production-grade distributed tracing.
+
+Existing correlation anchors:
+
+- HTTP requests get a short `requestId` through `LoggingInterceptor`.
+- WebSocket chat uses `sessionId`.
+- Upload, parse, vectorization, and search can usually be correlated by `fileMd5`.
+- User operations commonly include `userId` or username.
+- Agentic RAG internally returns `AgentTraceStep` objects with stage, duration, input summary, output summary, and failure reason.
+
+Main log files:
+
+```text
+logs/smartpai.YYYY-MM-DD.log
+logs/business.YYYY-MM-DD.log
+logs/error.YYYY-MM-DD.log
+logs/performance.YYYY-MM-DD.log
+```
+
+Useful local checks:
+
+```bash
+rg "sessionId=<id>|Start chat processing|Reference mapping|DeepSeek|searchWithPermission|completion" logs
+rg "fileMd5=<md5>|MERGE_FILE|Kafka|PARSE|vector|knowledge_base" logs
+rg "reference-md5|GET_REFERENCE_MD5|Reference mapping" logs
+```
+
+Known traceability gaps:
+
+- No single `traceId` currently spans upload, Kafka, parse, vectorization, ES indexing, chat, Agentic RAG, LLM generation, and citation lookup.
+- WebSocket logging is not fully MDC-correlated in the same way as normal HTTP requests.
+- `AgentTraceStep` is not yet consistently emitted as structured JSON logs.
+- Logs are text-oriented, not JSON logs designed for ELK/Loki/OpenSearch ingestion.
+
+If adding observability, prefer a `traceId` propagated through MDC, WebSocket session attributes, Kafka headers, Agentic RAG trace events, and citation lookup.
+
 ## Common Change Patterns
 
 Backend feature path:
@@ -253,10 +333,11 @@ New LLM or embedding provider:
 
 ## Testing Guidance
 
-Backend tests live under `src/test/java/com/yizhaoqi/smartpai/service/`.
+Backend tests live under `src/test/java/com/yizhaoqi/smartpai/`.
 
 Known tests include:
 
+- `AgenticRagServiceTest`
 - `UserServiceTest`
 - `ConversationServiceTest`
 - `ParseServiceTest`
@@ -264,11 +345,40 @@ Known tests include:
 - `UploadServicePerformanceTest`
 - `JwtUtilsRefreshTest`
 
-Run a targeted backend test with:
+Run targeted backend tests with:
 
 ```bash
 mvn test -Dtest=ParseServiceUnitTest
+mvn test -Dtest=AgenticRagServiceTest
 ```
+
+Run all backend tests with local Docker settings:
+
+```powershell
+$env:PAISMART_DB_PASSWORD='changeme'
+$env:SPRING_DATA_REDIS_PASSWORD='changeme'
+$env:PAISMART_ES_SCHEME='http'
+$env:PAISMART_ES_PASSWORD='changeme'
+$env:PAISMART_MINIO_ENDPOINT='http://localhost:19000'
+$env:PAISMART_MINIO_PUBLIC_URL='http://localhost:19000'
+$env:PAISMART_MINIO_ACCESS_KEY='admin'
+$env:PAISMART_MINIO_SECRET_KEY='changeme'
+$env:PAISMART_ADMIN_PASSWORD='changeme'
+$env:PAISMART_AGENTIC_RAG_ENABLED='true'
+& "C:\Users\Administrator\tools\apache-maven-3.9.10\bin\mvn.cmd" "-Dmaven.repo.local=D:\PaiSmart-deps\maven-repository" test
+```
+
+There is currently no fully automated Agentic RAG integration test in `mvn test`. The existing Agentic RAG coverage is primarily unit-level with mocked DeepSeek/search collaborators. Full end-to-end verification has been done manually with local Docker infrastructure:
+
+```text
+upload -> Kafka -> parse -> vectorize -> Elasticsearch -> searchWithPermission -> WebSocket -> Agentic RAG -> DeepSeek stream -> reference-md5
+```
+
+Recommended future integration tests:
+
+- `AgenticRagIntegrationTest`: Spring context, mocked LLM planner/evaluator, real `HybridSearchService`, permissioned search assertions.
+- `ChatWebSocketIntegrationTest`: random-port Spring Boot, WebSocket client, `connection/chunk/completion`, and `/documents/reference-md5`.
+- Docker-backed `*IT.java` tests through Maven Failsafe for MySQL, Redis, Kafka, MinIO, and Elasticsearch dependent flows.
 
 Frontend checks should prefer:
 
@@ -279,15 +389,18 @@ pnpm lint
 pnpm build
 ```
 
-Use focused tests for narrow edits, but broaden verification when touching shared auth, request handling, WebSocket chat, search permissions, upload processing, or external provider integration.
+Use focused tests for narrow edits, but broaden verification when touching shared auth, request handling, WebSocket chat, search permissions, upload processing, external provider integration, or SCA remediation behavior.
 
 ## Agent Working Rules
 
 - Read existing code before changing behavior; this project has cross-service contracts between frontend, Redis, Kafka, Elasticsearch, and MySQL.
+- Treat this as an SCA vulnerability detection and remediation platform, not only a generic document Q&A app.
 - Do not remove permission filters from search or document APIs.
 - Do not change indexed field names or vector dimensions casually; Elasticsearch mappings and DashScope embeddings depend on them.
 - Do not break the WebSocket message contract for `connection`, streamed `chunk`, `completion`, and `stop` messages.
+- Do not break citation lookup through `sessionId -> referenceNumber -> fileMd5`.
 - Preserve Simplified Chinese answer behavior in the AI system prompt unless explicitly asked otherwise.
 - Treat external AI provider failures separately from local pipeline bugs. Provider outage or quota failure does not prove the upload, parse, vectorization, or chat orchestration code is wrong.
 - Keep frontend route, store, and API changes aligned; most visible features require all three.
 - Prefer small, verifiable changes. For RAG behavior, cite the exact service, key, topic, index, or endpoint affected.
+- Never commit local API keys, tokens, passwords, or machine-specific dependency cache paths.
