@@ -59,7 +59,7 @@ minio:
   bucketName: ${PAISMART_MINIO_BUCKET:uploads}
   publicUrl: ${PAISMART_MINIO_PUBLIC_URL:http://localhost:9000}
 jwt:
-  secret-key: ${PAISMART_JWT_SECRET:change-me-with-a-strong-random-secret}
+  secret-key: ${PAISMART_JWT_SECRET:MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY=}
 
 # 管理员账号初始化配置
 admin:
@@ -132,3 +132,13 @@ ai:
     adaptive-max-top-k: 6
     adaptive-score-ratio: 0.82
     adaptive-context-char-budget: 1200
+  agentic:
+    enabled: ${PAISMART_AGENTIC_RAG_ENABLED:true}
+    max-search-rounds: ${PAISMART_AGENTIC_MAX_SEARCH_ROUNDS:2}
+    planner-timeout-ms: ${PAISMART_AGENTIC_PLANNER_TIMEOUT_MS:1500}
+    evaluator-timeout-ms: ${PAISMART_AGENTIC_EVALUATOR_TIMEOUT_MS:1500}
+    max-context-chars: ${PAISMART_AGENTIC_MAX_CONTEXT_CHARS:1600}
+    emit-trace-events: ${PAISMART_AGENTIC_EMIT_TRACE_EVENTS:false}
+    first-round-top-k: ${PAISMART_AGENTIC_FIRST_ROUND_TOP_K:12}
+    rewrite-round-top-k: ${PAISMART_AGENTIC_REWRITE_ROUND_TOP_K:8}
+    max-sub-queries: ${PAISMART_AGENTIC_MAX_SUB_QUERIES:4}

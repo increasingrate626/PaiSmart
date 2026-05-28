@@ -4,6 +4,7 @@ import com.yizhaoqi.smartpai.model.FileUpload;
 import com.yizhaoqi.smartpai.model.OrganizationTag;
 import com.yizhaoqi.smartpai.repository.FileUploadRepository;
 import com.yizhaoqi.smartpai.repository.OrganizationTagRepository;
+import com.yizhaoqi.smartpai.service.ChatHandler;
 import com.yizhaoqi.smartpai.service.DocumentService;
 import com.yizhaoqi.smartpai.utils.LogUtils;
 import com.yizhaoqi.smartpai.utils.JwtUtils;
@@ -45,6 +46,9 @@ public class DocumentController {
     
     @Autowired
     private JwtUtils jwtUtils;
+
+    @Autowired
+    private ChatHandler chatHandler;
 
     /**
      * 删除文档及其相关数据
@@ -515,6 +519,44 @@ public class DocumentController {
      * @param tagId 组织标签ID
      * @return 组织标签名称，如果找不到则返回原tagId
      */
+    @GetMapping("/reference-md5")
+    public ResponseEntity<?> getReferenceMd5(
+            @RequestParam String sessionId,
+            @RequestParam Integer referenceNumber) {
+
+        LogUtils.PerformanceMonitor monitor = LogUtils.startPerformanceMonitor("GET_REFERENCE_MD5");
+        try {
+            String fileMd5 = chatHandler.getReferenceMd5(sessionId, referenceNumber);
+
+            if (fileMd5 == null) {
+                monitor.end("Reference mapping not found");
+                Map<String, Object> response = new HashMap<>();
+                response.put("code", HttpStatus.NOT_FOUND.value());
+                response.put("message", "Reference mapping not found");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+            }
+
+            monitor.end("Reference MD5 resolved");
+            Map<String, Object> response = new HashMap<>();
+            response.put("code", 200);
+            response.put("message", "Reference MD5 resolved");
+            response.put("data", Map.of(
+                    "fileMd5", fileMd5,
+                    "referenceNumber", referenceNumber
+            ));
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            LogUtils.logBusinessError("GET_REFERENCE_MD5", "system",
+                    "Failed to get reference MD5: sessionId=%s, referenceNumber=%s",
+                    e, sessionId, referenceNumber);
+            monitor.end("Reference MD5 lookup failed: " + e.getMessage());
+            Map<String, Object> response = new HashMap<>();
+            response.put("code", HttpStatus.INTERNAL_SERVER_ERROR.value());
+            response.put("message", "Reference MD5 lookup failed: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        }
+    }
+
     private String getOrgTagName(String tagId) {
         if (tagId == null || tagId.isEmpty()) {
             return null;
@@ -533,4 +575,4 @@ public class DocumentController {
             return tagId; // 发生错误时返回原tagId
         }
     }
-} 
+}
