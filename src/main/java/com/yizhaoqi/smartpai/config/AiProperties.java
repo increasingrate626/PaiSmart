@@ -14,6 +14,7 @@ public class AiProperties {
 
     private Prompt prompt = new Prompt();
     private Generation generation = new Generation();
+    private Agentic agentic = new Agentic();
 
     @Data
     public static class Prompt {
@@ -36,4 +37,17 @@ public class AiProperties {
         /** nucleus top-p */
         private Double topP = 0.9;
     }
-} 
+
+    @Data
+    public static class Agentic {
+        private boolean enabled = true;
+        private int maxSearchRounds = 2;
+        private int plannerTimeoutMs = 1500;
+        private int evaluatorTimeoutMs = 1500;
+        private int maxContextChars = 1600;
+        private boolean emitTraceEvents = false;
+        private int firstRoundTopK = 12;
+        private int rewriteRoundTopK = 8;
+        private int maxSubQueries = 4;
+    }
+}

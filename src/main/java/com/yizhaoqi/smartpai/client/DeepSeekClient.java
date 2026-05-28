@@ -14,6 +14,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.yizhaoqi.smartpai.config.AiProperties;
+import java.time.Duration;
+import java.util.Optional;
 
 @Service
 public class DeepSeekClient {
@@ -22,6 +24,7 @@ public class DeepSeekClient {
     private final String apiKey;
     private final String model;
     private final AiProperties aiProperties;
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private static final Logger logger = LoggerFactory.getLogger(DeepSeekClient.class);
     
     public DeepSeekClient(@Value("${deepseek.api.url}") String apiUrl,
@@ -59,6 +62,77 @@ public class DeepSeekClient {
                     chunk -> processChunk(chunk, onChunk),
                     onError
                 );
+    }
+
+    public <T> Optional<T> completeJson(String systemPrompt, String userPrompt, Class<T> responseType) {
+        try {
+            Map<String, Object> request = buildJsonRequest(systemPrompt, userPrompt);
+            String response = webClient.post()
+                    .uri("/chat/completions")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(request)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block(Duration.ofSeconds(30));
+
+            if (response == null || response.isBlank()) {
+                logger.warn("DeepSeek JSON completion returned empty response");
+                return Optional.empty();
+            }
+
+            JsonNode root = objectMapper.readTree(response);
+            String content = root.path("choices")
+                    .path(0)
+                    .path("message")
+                    .path("content")
+                    .asText("");
+            String json = extractJsonObject(content);
+            if (json.isBlank()) {
+                logger.warn("DeepSeek JSON completion content did not contain a JSON object");
+                return Optional.empty();
+            }
+
+            return Optional.of(objectMapper.readValue(json, responseType));
+        } catch (Exception e) {
+            logger.warn("DeepSeek JSON completion failed for type {}", responseType.getSimpleName(), e);
+            return Optional.empty();
+        }
+    }
+
+    private Map<String, Object> buildJsonRequest(String systemPrompt, String userPrompt) {
+        Map<String, Object> request = new java.util.HashMap<>();
+        request.put("model", model);
+        request.put("stream", false);
+        request.put("messages", List.of(
+                Map.of("role", "system", "content", systemPrompt),
+                Map.of("role", "user", "content", userPrompt)
+        ));
+
+        AiProperties.Generation gen = aiProperties.getGeneration();
+        request.put("temperature", 0.0d);
+        if (gen.getTopP() != null) {
+            request.put("top_p", gen.getTopP());
+        }
+        request.put("max_tokens", 800);
+        return request;
+    }
+
+    private String extractJsonObject(String content) {
+        if (content == null) {
+            return "";
+        }
+        String trimmed = content.trim();
+        if (trimmed.startsWith("```")) {
+            trimmed = trimmed.replaceFirst("^```[a-zA-Z]*\\s*", "");
+            trimmed = trimmed.replaceFirst("\\s*```$", "");
+        }
+
+        int start = trimmed.indexOf('{');
+        int end = trimmed.lastIndexOf('}');
+        if (start < 0 || end < start) {
+            return "";
+        }
+        return trimmed.substring(start, end + 1);
     }
     
     private Map<String, Object> buildRequest(String userMessage, 
@@ -144,8 +218,7 @@ public class DeepSeekClient {
             }
             
             // 直接解析 JSON
-            ObjectMapper mapper = new ObjectMapper();
-            JsonNode node = mapper.readTree(chunk);
+            JsonNode node = objectMapper.readTree(chunk);
             String content = node.path("choices")
                                .path(0)
                                .path("delta")
@@ -159,4 +232,4 @@ public class DeepSeekClient {
             logger.error("处理数据块时出错: {}", e.getMessage(), e);
         }
     }
-} 
+}

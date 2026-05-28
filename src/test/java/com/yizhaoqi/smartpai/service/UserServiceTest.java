@@ -2,6 +2,7 @@ package com.yizhaoqi.smartpai.service;
 
 import com.yizhaoqi.smartpai.exception.CustomException;
 import com.yizhaoqi.smartpai.model.User;
+import com.yizhaoqi.smartpai.repository.OrganizationTagRepository;
 import com.yizhaoqi.smartpai.repository.UserRepository;
 import com.yizhaoqi.smartpai.utils.PasswordUtil;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +26,12 @@ class UserServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private OrganizationTagRepository organizationTagRepository;
+
+    @Mock
+    private OrgTagCacheService orgTagCacheService;
+
     // 注入模拟的 UserService 实例
     @InjectMocks
     private UserService userService;
@@ -35,6 +42,7 @@ class UserServiceTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        lenient().when(organizationTagRepository.existsByTagId(anyString())).thenReturn(true);
     }
 
     /**
@@ -52,10 +60,10 @@ class UserServiceTest {
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
 
         // 验证 userRepository.save 被调用了一次，并捕获参数
-        verify(userRepository, times(1)).save(userCaptor.capture());
+        verify(userRepository, times(2)).save(userCaptor.capture());
 
         // 获取捕获的 User 对象并进行断言
-        User savedUser = userCaptor.getValue();
+        User savedUser = userCaptor.getAllValues().get(userCaptor.getAllValues().size() - 1);
         assertNotNull(savedUser);
         assertEquals("testuser", savedUser.getUsername());
     }
