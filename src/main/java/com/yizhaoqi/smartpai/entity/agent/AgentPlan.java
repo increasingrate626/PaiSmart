@@ -11,4 +11,5 @@ public class AgentPlan {
     private List<String> subQueries = new ArrayList<>();
     private String answerStrategy;
     private boolean needsClarification;
+    private String decisionReason;
 }

@@ -10,6 +10,7 @@ import org.springframework.web.socket.handler.TextWebSocketHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yizhaoqi.smartpai.service.ChatHandler;
 import com.yizhaoqi.smartpai.utils.JwtUtils;
+import com.yizhaoqi.smartpai.utils.TraceContext;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
 
@@ -33,15 +34,21 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) {
         String userId = extractUserId(session);
+        String connectionTraceId = TraceContext.createTraceId();
+        TraceContext.setTraceId(connectionTraceId);
+        TraceContext.setSessionId(session.getId());
+        TraceContext.setUserId(userId);
         sessions.put(userId, session);
-        logger.info("WebSocket连接已建立，用户ID: {}，会话ID: {}，URI路径: {}",
-                    userId, session.getId(), session.getUri().getPath());
+        logger.info("WebSocket连接已建立，用户ID: {}，会话ID: {}，connectionTraceId: {}，URI路径: {}",
+                    userId, session.getId(), connectionTraceId, session.getUri().getPath());
 
         // 发送会话ID到前端
         try {
             Map<String, String> connectionMessage = Map.of(
                 "type", "connection",
                 "sessionId", session.getId(),
+                "traceId", connectionTraceId,
+                "connectionTraceId", connectionTraceId,
                 "message", "WebSocket连接已建立"
             );
             String jsonMessage = objectMapper.writeValueAsString(connectionMessage);
@@ -49,6 +56,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             logger.info("已发送会话ID到前端: sessionId={}", session.getId());
         } catch (Exception e) {
             logger.error("发送会话ID失败: {}", e.getMessage(), e);
+        } finally {
+            TraceContext.clearTraceContext();
         }
     }
 

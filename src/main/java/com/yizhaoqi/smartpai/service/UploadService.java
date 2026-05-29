@@ -4,6 +4,7 @@ import com.yizhaoqi.smartpai.model.ChunkInfo;
 import com.yizhaoqi.smartpai.model.FileUpload;
 import com.yizhaoqi.smartpai.repository.ChunkInfoRepository;
 import com.yizhaoqi.smartpai.repository.FileUploadRepository;
+import com.yizhaoqi.smartpai.utils.TraceContext;
 import io.minio.*;
 import io.minio.http.Method;
 import org.apache.commons.codec.digest.DigestUtils;
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 public class UploadService {
 
     private static final Logger logger = LoggerFactory.getLogger(UploadService.class);
+    private static final String INGESTION_TRACE_KEY_PREFIX = "trace:ingestion:";
 
     // 用于缓存已上传分片的信息
     @Autowired
@@ -62,6 +64,18 @@ public class UploadService {
      */
     public void uploadChunk(String fileMd5, int chunkIndex, long totalSize, String fileName, 
                            MultipartFile file, String orgTag, boolean isPublic, String userId) throws IOException {
+        uploadChunk(fileMd5, chunkIndex, totalSize, fileName, file, orgTag, isPublic, userId,
+                getOrCreateIngestionTraceId(fileMd5, userId));
+    }
+
+    public void uploadChunk(String fileMd5, int chunkIndex, long totalSize, String fileName,
+                           MultipartFile file, String orgTag, boolean isPublic, String userId,
+                           String ingestionTraceId) throws IOException {
+        String safeIngestionTraceId = ingestionTraceId == null || ingestionTraceId.isBlank()
+                ? getOrCreateIngestionTraceId(fileMd5, userId)
+                : ingestionTraceId;
+        TraceContext.setTraceId(safeIngestionTraceId);
+        TraceContext.setIngestionTraceId(safeIngestionTraceId);
         // 获取文件类型信息
         String fileType = getFileType(fileName);
         String contentType = file.getContentType();
@@ -71,7 +85,8 @@ public class UploadService {
         
         try {
             // 检查 file_upload 表中是否存在该 file_md5
-            boolean fileExists = fileUploadRepository.findByFileMd5AndUserId(fileMd5, userId).isPresent();
+            Optional<FileUpload> existingFile = fileUploadRepository.findByFileMd5AndUserId(fileMd5, userId);
+            boolean fileExists = existingFile.isPresent();
             logger.debug("检查文件记录是否存在 => fileMd5: {}, fileName: {}, fileType: {}, exists: {}", fileMd5, fileName, fileType, fileExists);
             
             if (!fileExists) {
@@ -86,6 +101,7 @@ public class UploadService {
                 fileUpload.setUserId(userId); // 设置上传用户ID
                 fileUpload.setOrgTag(orgTag); // 设置组织标签
                 fileUpload.setPublic(isPublic); // 设置是否公开
+                fileUpload.setIngestionTraceId(safeIngestionTraceId);
                 try {
                     fileUploadRepository.save(fileUpload);
                     logger.info("文件记录创建成功 => fileMd5: {}, fileName: {}, fileType: {}", fileMd5, fileName, fileType);
@@ -93,6 +109,10 @@ public class UploadService {
                     logger.error("创建文件记录失败 => fileMd5: {}, fileName: {}, fileType: {}, 错误: {}", fileMd5, fileName, fileType, e.getMessage(), e);
                     throw new RuntimeException("创建文件记录失败: " + e.getMessage(), e);
                 }
+            } else if (existingFile.get().getIngestionTraceId() == null || existingFile.get().getIngestionTraceId().isBlank()) {
+                FileUpload fileUpload = existingFile.get();
+                fileUpload.setIngestionTraceId(safeIngestionTraceId);
+                fileUploadRepository.save(fileUpload);
             }
 
             // 检查分片是否已经上传
@@ -228,6 +248,31 @@ public class UploadService {
                        fileMd5, fileName, fileType, chunkIndex, e.getClass().getName(), e.getMessage(), e);
             throw e; // 重新抛出异常供上层处理
         }
+    }
+
+    public String getOrCreateIngestionTraceId(String fileMd5, String userId) {
+        String redisKey = ingestionTraceKey(fileMd5, userId);
+        Object cached = redisTemplate.opsForValue().get(redisKey);
+        if (cached instanceof String cachedTraceId && !cachedTraceId.isBlank()) {
+            return cachedTraceId;
+        }
+
+        Optional<FileUpload> existingFile = fileUploadRepository.findByFileMd5AndUserId(fileMd5, userId);
+        if (existingFile.isPresent()
+                && existingFile.get().getIngestionTraceId() != null
+                && !existingFile.get().getIngestionTraceId().isBlank()) {
+            String traceId = existingFile.get().getIngestionTraceId();
+            redisTemplate.opsForValue().set(redisKey, traceId, 7, TimeUnit.DAYS);
+            return traceId;
+        }
+
+        String traceId = TraceContext.createTraceId();
+        redisTemplate.opsForValue().set(redisKey, traceId, 7, TimeUnit.DAYS);
+        return traceId;
+    }
+
+    private String ingestionTraceKey(String fileMd5, String userId) {
+        return INGESTION_TRACE_KEY_PREFIX + userId + ":" + fileMd5;
     }
 
     /**

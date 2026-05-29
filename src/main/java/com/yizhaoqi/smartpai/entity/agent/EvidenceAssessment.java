@@ -11,4 +11,5 @@ public class EvidenceAssessment {
     private List<String> missingAspects = new ArrayList<>();
     private List<String> selectedChunkIds = new ArrayList<>();
     private List<String> rewriteQueries = new ArrayList<>();
+    private String decisionReason;
 }

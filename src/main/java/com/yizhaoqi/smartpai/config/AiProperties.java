@@ -46,6 +46,9 @@ public class AiProperties {
         private int evaluatorTimeoutMs = 1500;
         private int maxContextChars = 1600;
         private boolean emitTraceEvents = false;
+        private boolean logLlmDecisions = false;
+        private int logPromptPreviewChars = 300;
+        private int logOutputPreviewChars = 1200;
         private int firstRoundTopK = 12;
         private int rewriteRoundTopK = 8;
         private int maxSubQueries = 4;

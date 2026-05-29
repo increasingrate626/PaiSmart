@@ -37,9 +37,13 @@ public class VectorizationService {
      * @param isPublic 是否公开
      */
     public void vectorize(String fileMd5, String userId, String orgTag, boolean isPublic) {
+        vectorize(fileMd5, userId, orgTag, isPublic, null);
+    }
+
+    public void vectorize(String fileMd5, String userId, String orgTag, boolean isPublic, String ingestionTraceId) {
         try {
-            logger.info("开始向量化文件，fileMd5: {}, userId: {}, orgTag: {}, isPublic: {}", 
-                       fileMd5, userId, orgTag, isPublic);
+            logger.info("开始向量化文件，fileMd5: {}, userId: {}, orgTag: {}, isPublic: {}, ingestionTraceId: {}",
+                       fileMd5, userId, orgTag, isPublic, ingestionTraceId);
                        
             // 获取文件分块内容
             List<TextChunk> chunks = fetchTextChunks(fileMd5);
@@ -67,7 +71,8 @@ public class VectorizationService {
                             "deepseek-embed", // 更新为 DeepSeek 的模型版本
                             userId,
                             orgTag,
-                            isPublic
+                            isPublic,
+                            ingestionTraceId
                     ))
                     .toList();
 

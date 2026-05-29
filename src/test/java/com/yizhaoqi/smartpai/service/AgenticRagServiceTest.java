@@ -7,10 +7,15 @@ import com.yizhaoqi.smartpai.entity.agent.AgentPlan;
 import com.yizhaoqi.smartpai.entity.agent.AgenticRagRequest;
 import com.yizhaoqi.smartpai.entity.agent.AgenticRagResult;
 import com.yizhaoqi.smartpai.entity.agent.EvidenceAssessment;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -143,11 +148,95 @@ class AgenticRagServiceTest {
         verify(deepSeekClient, never()).completeJson(anyString(), anyString(), eq(EvidenceAssessment.class));
     }
 
+    @Test
+    void writesAgentTraceStepsWithTraceIdToLogs() {
+        Logger agentLogger = (Logger) LoggerFactory.getLogger(AgenticRagService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        agentLogger.addAppender(appender);
+
+        try {
+            SearchResult result = result("file-a", 1, "allowed evidence", 0.9, "a.txt");
+            when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.empty());
+            when(searchService.searchWithPermission("plain question", "alice", 12)).thenReturn(List.of(result));
+
+            service.run(new AgenticRagRequest("alice", "plain question", List.of(), "session-1"));
+
+            assertTrue(appender.list.stream().anyMatch(event ->
+                    event.getLevel().equals(Level.INFO)
+                            && event.getFormattedMessage().contains("agentic_rag_trace")
+                            && event.getFormattedMessage().contains("traceId=session-1")
+                            && event.getFormattedMessage().contains("sessionId=session-1")
+                            && event.getFormattedMessage().contains("userId=alice")
+                            && event.getFormattedMessage().contains("stage=FALLBACK_SEARCH")));
+        } finally {
+            agentLogger.detachAppender(appender);
+        }
+    }
+
+    @Test
+    void writesStructuredLlmDecisionAuditLogsWithTraceId() {
+        Logger agentLogger = (Logger) LoggerFactory.getLogger(AgenticRagService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        agentLogger.addAppender(appender);
+
+        try {
+            aiProperties.getAgentic().setLogLlmDecisions(true);
+
+            AgentPlan plan = new AgentPlan();
+            plan.setIntent("explain test document");
+            plan.setSubQueries(List.of("agentic rag test document"));
+            plan.setAnswerStrategy("answer from selected evidence");
+            plan.setDecisionReason("question asks for key content, so retrieve the named test document");
+
+            EvidenceAssessment assessment = new EvidenceAssessment();
+            assessment.setSufficient(true);
+            assessment.setSelectedChunkIds(List.of("file-a:1"));
+            assessment.setDecisionReason("selected chunk directly describes the test document");
+
+            SearchResult result = result("file-a", 1, "allowed evidence", 0.9, "a.txt");
+            when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+            when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
+            when(searchService.searchWithPermission("agentic rag test document", "alice", 12)).thenReturn(List.of(result));
+
+            service.run(new AgenticRagRequest("alice", "plain question", List.of(), "session-1", "trace-123"));
+
+            List<String> messages = appender.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
+            assertTrue(messages.stream().anyMatch(message ->
+                    message.contains("agentic_rag_llm_decision")
+                            && message.contains("traceId=trace-123")
+                            && message.contains("stage=PLAN_QUERY")
+                            && message.contains("\"intent\":\"explain test document\"")
+                            && message.contains("\"decisionReason\":\"question asks for key content")));
+            assertTrue(messages.stream().anyMatch(message ->
+                    message.contains("agentic_rag_llm_decision")
+                            && message.contains("traceId=trace-123")
+                            && message.contains("stage=EVALUATE_EVIDENCE")
+                            && message.contains("\"sufficient\":true")
+                            && message.contains("\"decisionReason\":\"selected chunk directly describes")));
+            assertTrue(messages.stream().anyMatch(message ->
+                    message.contains("agentic_rag_search_audit")
+                            && message.contains("traceId=trace-123")
+                            && message.contains("stage=SEARCH")
+                            && message.contains("file-a:1")
+                            && message.contains("a.txt")
+                            && message.contains("trc-ingest-file-a")));
+            assertTrue(messages.stream().anyMatch(message ->
+                    message.contains("agentic_rag_final_audit")
+                            && message.contains("traceId=trace-123")
+                            && message.contains("contextChars=")
+                            && message.contains("referenceMapping={1=file-a}")));
+        } finally {
+            agentLogger.detachAppender(appender);
+        }
+    }
+
     private AgenticRagRequest request(String userId, String message) {
         return new AgenticRagRequest(userId, message, List.of(), "session-1");
     }
 
     private SearchResult result(String fileMd5, int chunkId, String text, double score, String fileName) {
-        return new SearchResult(fileMd5, chunkId, text, score, "owner", "org", true, fileName);
+        return new SearchResult(fileMd5, chunkId, text, score, "owner", "org", true, fileName, "trc-ingest-" + fileMd5);
     }
 }
