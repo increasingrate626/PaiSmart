@@ -8,6 +8,8 @@ import com.yizhaoqi.smartpai.entity.agent.AgentTraceStep;
 import com.yizhaoqi.smartpai.entity.agent.AgenticRagRequest;
 import com.yizhaoqi.smartpai.entity.agent.AgenticRagResult;
 import com.yizhaoqi.smartpai.entity.agent.EvidenceAssessment;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -35,6 +37,7 @@ public class AgenticRagService {
     private final HybridSearchService searchService;
     private final DeepSeekClient deepSeekClient;
     private final AiProperties aiProperties;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AgenticRagService(HybridSearchService searchService,
                              DeepSeekClient deepSeekClient,
@@ -68,6 +71,7 @@ public class AgenticRagService {
 
             AgentPlan plan = planOptional.get();
             addTrace(trace, request, "PLAN_QUERY", 0, summarize(request.getMessage()), summarizePlan(plan), null);
+            auditLlmDecision(request, "PLAN_QUERY", buildPlannerUserPrompt(request), plan);
 
             List<SearchResult> evidence = new ArrayList<>();
             List<String> firstRoundQueries = normalizeQueries(plan.getSubQueries(), request.getMessage(), cfg.getMaxSubQueries());
@@ -88,7 +92,7 @@ public class AgenticRagService {
                 assessment = assessEvidence(request, plan, evidence, trace, cfg).orElse(assessment);
             }
 
-            return buildResult(evidence, assessment, trace, cfg.getMaxContextChars());
+            return buildResult(request, evidence, assessment, trace, cfg.getMaxContextChars());
         } catch (Exception e) {
             logger.error("Agentic RAG failed, falling back to normal RAG", e);
             return fallbackSearch(request, trace, e.getMessage());
@@ -110,7 +114,10 @@ public class AgenticRagService {
                 summarize(request.getMessage())
         );
         result.ifPresent(assessment ->
-                addTrace(trace, request, "EVALUATE_EVIDENCE", 0, summarize(request.getMessage()), summarizeAssessment(assessment), null));
+        {
+            addTrace(trace, request, "EVALUATE_EVIDENCE", 0, summarize(request.getMessage()), summarizeAssessment(assessment), null);
+            auditLlmDecision(request, "EVALUATE_EVIDENCE", userPrompt, assessment);
+        });
         return result;
     }
 
@@ -126,6 +133,7 @@ public class AgenticRagService {
                 List<SearchResult> results = searchService.searchWithPermission(query, request.getUserId(), topK);
                 evidence.addAll(results);
                 addTrace(trace, request, stage, elapsedMs(start), summarize(query), "results=" + results.size(), null);
+                auditSearch(request, stage, query, results);
             } catch (Exception e) {
                 addTrace(trace, request, stage, elapsedMs(start), summarize(query), "results=0", e.getMessage());
                 logger.warn("Agentic RAG search failed for query: {}", query, e);
@@ -142,20 +150,23 @@ public class AgenticRagService {
                     aiProperties.getAgentic().getFirstRoundTopK()
             );
             addTrace(trace, request, "FALLBACK_SEARCH", elapsedMs(start), summarize(request.getMessage()), "results=" + results.size(), reason);
-            return buildResult(results, null, trace, aiProperties.getAgentic().getMaxContextChars());
+            auditSearch(request, "FALLBACK_SEARCH", request.getMessage(), results);
+            return buildResult(request, results, null, trace, aiProperties.getAgentic().getMaxContextChars());
         } catch (Exception e) {
             addTrace(trace, request, "FALLBACK_SEARCH", elapsedMs(start), summarize(request.getMessage()), "results=0", e.getMessage());
             logger.error("Agentic RAG fallback search failed", e);
-            return buildResult(List.of(), null, trace, aiProperties.getAgentic().getMaxContextChars());
+            return buildResult(request, List.of(), null, trace, aiProperties.getAgentic().getMaxContextChars());
         }
     }
 
-    private AgenticRagResult buildResult(List<SearchResult> rawEvidence,
+    private AgenticRagResult buildResult(AgenticRagRequest request,
+                                         List<SearchResult> rawEvidence,
                                          EvidenceAssessment assessment,
                                          List<AgentTraceStep> trace,
                                          int budget) {
         List<SearchResult> selected = selectEvidence(rawEvidence, assessment);
         ContextBuildResult context = buildContext(selected, budget);
+        auditFinalContext(request, context);
         return new AgenticRagResult(context.context, context.includedEvidence, trace, context.referenceMapping);
     }
 
@@ -257,8 +268,9 @@ public class AgenticRagService {
         return """
                 You are the query planner for PaiSmart Agentic RAG.
                 Return only a JSON object matching this schema:
-                {"intent":"string","subQueries":["string"],"answerStrategy":"string","needsClarification":false}
+                {"intent":"string","subQueries":["string"],"answerStrategy":"string","needsClarification":false,"decisionReason":"string"}
                 Split complex questions into at most four focused retrieval queries.
+                decisionReason must be concise and auditable. Do not reveal hidden chain-of-thought.
                 Do not answer the user.
                 """;
     }
@@ -271,9 +283,10 @@ public class AgenticRagService {
         return """
                 You are the evidence evaluator for PaiSmart Agentic RAG.
                 Return only a JSON object matching this schema:
-                {"sufficient":true,"missingAspects":[],"selectedChunkIds":["fileMd5:chunkId"],"rewriteQueries":[]}
+                {"sufficient":true,"missingAspects":[],"selectedChunkIds":["fileMd5:chunkId"],"rewriteQueries":[],"decisionReason":"string"}
                 Mark sufficient=false when the evidence cannot answer the question.
                 Rewrite queries must be retrieval queries only.
+                decisionReason must be concise and auditable. Do not reveal hidden chain-of-thought.
                 """;
     }
 
@@ -336,7 +349,8 @@ public class AgenticRagService {
         String safeFailure = summarize(failureReason);
         trace.add(new AgentTraceStep(stage, durationMs, safeInput, safeOutput, safeFailure));
         logger.info(
-                "agentic_rag_trace traceId={} sessionId={} userId={} stage={} durationMs={} inputSummary=\"{}\" outputSummary=\"{}\" failureReason=\"{}\"",
+                "agentic_rag_trace traceId={} chatTraceId={} sessionId={} userId={} stage={} durationMs={} inputSummary=\"{}\" outputSummary=\"{}\" failureReason=\"{}\"",
+                traceId(request),
                 traceId(request),
                 request.getSessionId(),
                 request.getUserId(),
@@ -346,6 +360,91 @@ public class AgenticRagService {
                 safeOutput,
                 safeFailure
         );
+    }
+
+    private void auditLlmDecision(AgenticRagRequest request, String stage, String promptPreview, Object decision) {
+        if (!aiProperties.getAgentic().isLogLlmDecisions()) {
+            return;
+        }
+        logger.info(
+                "agentic_rag_llm_decision traceId={} chatTraceId={} sessionId={} userId={} stage={} promptPreview=\"{}\" decisionJson={}",
+                traceId(request),
+                traceId(request),
+                request.getSessionId(),
+                request.getUserId(),
+                stage,
+                preview(promptPreview, aiProperties.getAgentic().getLogPromptPreviewChars()),
+                preview(toJson(decision), aiProperties.getAgentic().getLogOutputPreviewChars())
+        );
+    }
+
+    private void auditSearch(AgenticRagRequest request, String stage, String query, List<SearchResult> results) {
+        if (!aiProperties.getAgentic().isLogLlmDecisions()) {
+            return;
+        }
+        List<Map<String, Object>> hits = results.stream()
+                .limit(10)
+                .map(result -> {
+                    Map<String, Object> hit = new LinkedHashMap<>();
+                    hit.put("chunkId", chunkKey(result));
+                    hit.put("fileName", result.getFileName());
+                    hit.put("score", result.getScore());
+                    hit.put("fileMd5", result.getFileMd5());
+                    hit.put("ingestionTraceId", result.getIngestionTraceId());
+                    return hit;
+                })
+                .toList();
+        logger.info(
+                "agentic_rag_search_audit traceId={} chatTraceId={} sessionId={} userId={} stage={} query=\"{}\" resultCount={} hitsJson={}",
+                traceId(request),
+                traceId(request),
+                request.getSessionId(),
+                request.getUserId(),
+                stage,
+                preview(query, aiProperties.getAgentic().getLogPromptPreviewChars()),
+                results.size(),
+                preview(toJson(hits), aiProperties.getAgentic().getLogOutputPreviewChars())
+        );
+    }
+
+    private void auditFinalContext(AgenticRagRequest request, ContextBuildResult context) {
+        if (!aiProperties.getAgentic().isLogLlmDecisions()) {
+            return;
+        }
+        Set<String> relatedIngestionTraceIds = context.includedEvidence.stream()
+                .map(SearchResult::getIngestionTraceId)
+                .filter(traceId -> traceId != null && !traceId.isBlank())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        logger.info(
+                "agentic_rag_final_audit traceId={} chatTraceId={} sessionId={} userId={} contextChars={} evidenceCount={} relatedIngestionTraceIds={} referenceMapping={} contextPreview=\"{}\"",
+                traceId(request),
+                traceId(request),
+                request.getSessionId(),
+                request.getUserId(),
+                context.context.length(),
+                context.includedEvidence.size(),
+                relatedIngestionTraceIds,
+                context.referenceMapping,
+                preview(context.context, aiProperties.getAgentic().getLogOutputPreviewChars())
+        );
+    }
+
+    private String toJson(Object value) {
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (JsonProcessingException e) {
+            logger.warn("Failed to serialize agent audit value", e);
+            return "{}";
+        }
+    }
+
+    private String preview(String text, int maxChars) {
+        if (text == null) {
+            return "";
+        }
+        String normalized = text.replaceAll("\\s+", " ").trim();
+        int safeMax = Math.max(0, maxChars);
+        return normalized.length() <= safeMax ? normalized : normalized.substring(0, safeMax);
     }
 
     private String traceId(AgenticRagRequest request) {

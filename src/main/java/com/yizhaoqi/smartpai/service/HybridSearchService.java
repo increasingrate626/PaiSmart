@@ -150,7 +150,9 @@ public class HybridSearchService {
                                 hit.score(),
                                 hit.source().getUserId(),
                                 hit.source().getOrgTag(),
-                                hit.source().isPublic()
+                                hit.source().isPublic(),
+                                null,
+                                hit.source().getIngestionTraceId()
                         );
                     })
                     .toList();
@@ -254,7 +256,9 @@ public class HybridSearchService {
                                 hit.score(),
                                 hit.source().getUserId(),
                                 hit.source().getOrgTag(),
-                                hit.source().isPublic()
+                                hit.source().isPublic(),
+                                null,
+                                hit.source().getIngestionTraceId()
                         );
                     })
                     .toList();
@@ -322,7 +326,12 @@ public class HybridSearchService {
                                 hit.source().getFileMd5(),
                                 hit.source().getChunkId(),
                                 hit.source().getTextContent(),
-                                hit.score()
+                                hit.score(),
+                                hit.source().getUserId(),
+                                hit.source().getOrgTag(),
+                                hit.source().isPublic(),
+                                null,
+                                hit.source().getIngestionTraceId()
                         );
                     })
                     .toList();
@@ -362,7 +371,12 @@ public class HybridSearchService {
                             hit.source().getFileMd5(),
                             hit.source().getChunkId(),
                             hit.source().getTextContent(),
-                            hit.score()
+                            hit.score(),
+                            hit.source().getUserId(),
+                            hit.source().getOrgTag(),
+                            hit.source().isPublic(),
+                            null,
+                            hit.source().getIngestionTraceId()
                     );
                 })
                 .toList();

@@ -139,6 +139,9 @@ ai:
     evaluator-timeout-ms: ${PAISMART_AGENTIC_EVALUATOR_TIMEOUT_MS:1500}
     max-context-chars: ${PAISMART_AGENTIC_MAX_CONTEXT_CHARS:1600}
     emit-trace-events: ${PAISMART_AGENTIC_EMIT_TRACE_EVENTS:false}
+    log-llm-decisions: ${PAISMART_AGENTIC_LOG_LLM_DECISIONS:false}
+    log-prompt-preview-chars: ${PAISMART_AGENTIC_LOG_PROMPT_PREVIEW_CHARS:300}
+    log-output-preview-chars: ${PAISMART_AGENTIC_LOG_OUTPUT_PREVIEW_CHARS:1200}
     first-round-top-k: ${PAISMART_AGENTIC_FIRST_ROUND_TOP_K:12}
     rewrite-round-top-k: ${PAISMART_AGENTIC_REWRITE_ROUND_TOP_K:8}
     max-sub-queries: ${PAISMART_AGENTIC_MAX_SUB_QUERIES:4}

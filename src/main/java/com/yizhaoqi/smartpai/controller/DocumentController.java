@@ -526,9 +526,13 @@ public class DocumentController {
 
         LogUtils.PerformanceMonitor monitor = LogUtils.startPerformanceMonitor("GET_REFERENCE_MD5");
         try {
+            String chatTraceId = chatHandler.getChatTraceId(sessionId);
             String fileMd5 = chatHandler.getReferenceMd5(sessionId, referenceNumber);
 
             if (fileMd5 == null) {
+                LogUtils.logBusiness("GET_REFERENCE_MD5", "system",
+                        "Reference mapping not found: sessionId=%s, chatTraceId=%s, referenceNumber=%s",
+                        sessionId, chatTraceId, referenceNumber);
                 monitor.end("Reference mapping not found");
                 Map<String, Object> response = new HashMap<>();
                 response.put("code", HttpStatus.NOT_FOUND.value());
@@ -536,14 +540,20 @@ public class DocumentController {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
             }
 
+            String ingestionTraceId = chatHandler.getReferenceIngestionTraceId(sessionId, referenceNumber);
+            LogUtils.logBusiness("GET_REFERENCE_MD5", "system",
+                    "Reference MD5 resolved: sessionId=%s, chatTraceId=%s, referenceNumber=%s, fileMd5=%s, ingestionTraceId=%s",
+                    sessionId, chatTraceId, referenceNumber, fileMd5, ingestionTraceId);
             monitor.end("Reference MD5 resolved");
             Map<String, Object> response = new HashMap<>();
             response.put("code", 200);
             response.put("message", "Reference MD5 resolved");
-            response.put("data", Map.of(
-                    "fileMd5", fileMd5,
-                    "referenceNumber", referenceNumber
-            ));
+            Map<String, Object> data = new HashMap<>();
+            data.put("fileMd5", fileMd5);
+            data.put("referenceNumber", referenceNumber);
+            data.put("chatTraceId", chatTraceId);
+            data.put("ingestionTraceId", ingestionTraceId);
+            response.put("data", data);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             LogUtils.logBusinessError("GET_REFERENCE_MD5", "system",

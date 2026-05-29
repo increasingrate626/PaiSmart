@@ -46,4 +46,7 @@ public class DocumentVector {
      */
     @Column(name = "is_public", nullable = false)
     private boolean isPublic = false;
+
+    @Column(name = "ingestion_trace_id", length = 64)
+    private String ingestionTraceId;
 }

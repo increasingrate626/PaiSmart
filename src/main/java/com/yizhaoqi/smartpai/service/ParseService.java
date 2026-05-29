@@ -58,6 +58,11 @@ public class ParseService {
      */
     public void parseAndSave(String fileMd5, InputStream fileStream,
             String userId, String orgTag, boolean isPublic) throws IOException, TikaException {
+        parseAndSave(fileMd5, fileStream, userId, orgTag, isPublic, null);
+    }
+
+    public void parseAndSave(String fileMd5, InputStream fileStream,
+            String userId, String orgTag, boolean isPublic, String ingestionTraceId) throws IOException, TikaException {
         logger.info("开始流式解析文件，fileMd5: {}, userId: {}, orgTag: {}, isPublic: {}",
                 fileMd5, userId, orgTag, isPublic);
         
@@ -65,7 +70,7 @@ public class ParseService {
 
         try (BufferedInputStream bufferedStream = new BufferedInputStream(fileStream, bufferSize)) {
             // 创建一个流式处理器，它会在内部处理父块的切分和子块的保存
-            StreamingContentHandler handler = new StreamingContentHandler(fileMd5, userId, orgTag, isPublic);
+            StreamingContentHandler handler = new StreamingContentHandler(fileMd5, userId, orgTag, isPublic, ingestionTraceId);
             Metadata metadata = new Metadata();
             ParseContext context = new ParseContext();
             AutoDetectParser parser = new AutoDetectParser();
@@ -125,14 +130,16 @@ public class ParseService {
         private final String userId;
         private final String orgTag;
         private final boolean isPublic;
+        private final String ingestionTraceId;
         private int savedChunkCount = 0;
 
-        public StreamingContentHandler(String fileMd5, String userId, String orgTag, boolean isPublic) {
+        public StreamingContentHandler(String fileMd5, String userId, String orgTag, boolean isPublic, String ingestionTraceId) {
             super(-1); // 禁用Tika的内部写入限制，我们自己管理缓冲区
             this.fileMd5 = fileMd5;
             this.userId = userId;
             this.orgTag = orgTag;
             this.isPublic = isPublic;
+            this.ingestionTraceId = ingestionTraceId;
         }
 
         @Override
@@ -159,7 +166,7 @@ public class ParseService {
             List<String> childChunks = ParseService.this.splitTextIntoChunksWithSemantics(parentChunkText, chunkSize);
 
             // 2. 将子切片批量保存到数据库
-            this.savedChunkCount = ParseService.this.saveChildChunks(fileMd5, childChunks, userId, orgTag, isPublic, this.savedChunkCount);
+            this.savedChunkCount = ParseService.this.saveChildChunks(fileMd5, childChunks, userId, orgTag, isPublic, this.savedChunkCount, ingestionTraceId);
 
             // 3. 清空缓冲区，为下一个父块做准备
             buffer.setLength(0);
@@ -179,6 +186,11 @@ public class ParseService {
      */
     private int saveChildChunks(String fileMd5, List<String> chunks,
             String userId, String orgTag, boolean isPublic, int startingChunkId) {
+        return saveChildChunks(fileMd5, chunks, userId, orgTag, isPublic, startingChunkId, null);
+    }
+
+    private int saveChildChunks(String fileMd5, List<String> chunks,
+            String userId, String orgTag, boolean isPublic, int startingChunkId, String ingestionTraceId) {
         int currentChunkId = startingChunkId;
         for (String chunk : chunks) {
             currentChunkId++;
@@ -189,6 +201,7 @@ public class ParseService {
             vector.setUserId(userId);
             vector.setOrgTag(orgTag);
             vector.setPublic(isPublic);
+            vector.setIngestionTraceId(ingestionTraceId);
             documentVectorRepository.save(vector);
         }
         logger.info("成功保存 {} 个子切片到数据库", chunks.size());

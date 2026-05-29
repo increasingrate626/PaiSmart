@@ -4,8 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yizhaoqi.smartpai.client.DeepSeekClient;
+import com.yizhaoqi.smartpai.entity.SearchResult;
 import com.yizhaoqi.smartpai.entity.agent.AgenticRagRequest;
 import com.yizhaoqi.smartpai.entity.agent.AgenticRagResult;
+import com.yizhaoqi.smartpai.utils.TraceContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -40,7 +42,9 @@ public class ChatHandler {
     private final Map<String, StringBuilder> responseBuilders = new ConcurrentHashMap<>();
     private final Map<String, CompletableFuture<String>> responseFutures = new ConcurrentHashMap<>();
     private final Map<String, Boolean> stopFlags = new ConcurrentHashMap<>();
+    private final Map<String, String> sessionChatTraceIds = new ConcurrentHashMap<>();
     private final Map<String, Map<Integer, String>> sessionReferenceMappings = new ConcurrentHashMap<>();
+    private final Map<String, Map<Integer, String>> sessionReferenceIngestionTraceMappings = new ConcurrentHashMap<>();
 
     public ChatHandler(RedisTemplate<String, String> redisTemplate,
                        AgenticRagService agenticRagService,
@@ -53,7 +57,13 @@ public class ChatHandler {
 
     public void processMessage(String userId, String userMessage, WebSocketSession session) {
         String sessionId = session.getId();
-        logger.info("Start chat processing: userId={}, sessionId={}", userId, sessionId);
+        String chatTraceId = TraceContext.createTraceId();
+        sessionChatTraceIds.put(sessionId, chatTraceId);
+        TraceContext.setTraceId(chatTraceId);
+        TraceContext.setChatTraceId(chatTraceId);
+        TraceContext.setSessionId(sessionId);
+        TraceContext.setUserId(userId);
+        logger.info("Start chat processing: userId={}, sessionId={}, chatTraceId={}", userId, sessionId, chatTraceId);
 
         try {
             String conversationId = getOrCreateConversationId(userId);
@@ -65,9 +75,10 @@ public class ChatHandler {
 
             List<Map<String, String>> history = getConversationHistory(conversationId);
             AgenticRagResult ragResult = agenticRagService.run(
-                    new AgenticRagRequest(userId, userMessage, history, sessionId)
+                    new AgenticRagRequest(userId, userMessage, history, sessionId, chatTraceId)
             );
             saveReferenceMapping(sessionId, ragResult.getReferenceMapping());
+            saveReferenceIngestionTraceMapping(sessionId, ragResult.getSelectedEvidence());
 
             deepSeekClient.streamResponse(
                     userMessage,
@@ -77,11 +88,13 @@ public class ChatHandler {
                     error -> handleStreamError(session, responseFuture, error)
             );
 
-            startCompletionWatcher(session, conversationId, userId, userMessage, responseFuture);
+            startCompletionWatcher(session, conversationId, userId, userMessage, responseFuture, chatTraceId);
         } catch (Exception e) {
             logger.error("Chat processing failed: {}", e.getMessage(), e);
             handleError(session, e);
             cleanupSession(sessionId);
+        } finally {
+            TraceContext.clearTraceContext();
         }
     }
 
@@ -103,7 +116,7 @@ public class ChatHandler {
                                    CompletableFuture<String> responseFuture,
                                    Throwable error) {
         handleError(session, error);
-        sendCompletionNotification(session);
+        sendCompletionNotification(session, sessionChatTraceIds.get(session.getId()));
         responseFuture.completeExceptionally(error);
         cleanupSession(session.getId());
     }
@@ -112,8 +125,13 @@ public class ChatHandler {
                                         String conversationId,
                                         String userId,
                                         String userMessage,
-                                        CompletableFuture<String> responseFuture) {
+                                        CompletableFuture<String> responseFuture,
+                                        String chatTraceId) {
         Thread watcher = new Thread(() -> {
+            TraceContext.setTraceId(chatTraceId);
+            TraceContext.setChatTraceId(chatTraceId);
+            TraceContext.setSessionId(session.getId());
+            TraceContext.setUserId(userId);
             try {
                 Thread.sleep(COMPLETION_INITIAL_DELAY_MS);
                 if (responseFuture.isDone()) {
@@ -135,13 +153,13 @@ public class ChatHandler {
                     int lastLength = responseBuilder.length();
                     Thread.sleep(COMPLETION_STABLE_WINDOW_MS);
                     if (responseBuilder.length() == lastLength) {
-                        finishResponse(session, conversationId, userId, userMessage, responseFuture);
+                        finishResponse(session, conversationId, userId, userMessage, responseFuture, chatTraceId);
                         return;
                     }
                 }
 
                 if (!responseFuture.isDone()) {
-                    finishResponse(session, conversationId, userId, userMessage, responseFuture);
+                    finishResponse(session, conversationId, userId, userMessage, responseFuture, chatTraceId);
                 }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -150,6 +168,8 @@ public class ChatHandler {
                 logger.error("Completion watcher failed: {}", e.getMessage(), e);
                 responseFuture.completeExceptionally(e);
                 cleanupSession(session.getId());
+            } finally {
+                TraceContext.clearTraceContext();
             }
         }, "chat-completion-" + session.getId());
         watcher.setDaemon(true);
@@ -160,16 +180,17 @@ public class ChatHandler {
                                 String conversationId,
                                 String userId,
                                 String userMessage,
-                                CompletableFuture<String> responseFuture) {
+                                CompletableFuture<String> responseFuture,
+                                String chatTraceId) {
         String sessionId = session.getId();
         StringBuilder responseBuilder = responseBuilders.get(sessionId);
         String completeResponse = responseBuilder != null ? responseBuilder.toString() : "";
 
         if (responseFuture.complete(completeResponse)) {
-            sendCompletionNotification(session);
+            sendCompletionNotification(session, chatTraceId);
             updateConversationHistory(conversationId, userMessage, completeResponse);
-            logger.info("Chat processing completed: userId={}, sessionId={}, responseLength={}",
-                    userId, sessionId, completeResponse.length());
+            logger.info("Chat processing completed: userId={}, sessionId={}, chatTraceId={}, responseLength={}",
+                    userId, sessionId, chatTraceId, completeResponse.length());
             cleanupSession(sessionId);
         }
     }
@@ -234,6 +255,20 @@ public class ChatHandler {
         logger.info("Reference mapping saved: sessionId={}, size={}", sessionId, safeMapping.size());
     }
 
+    private void saveReferenceIngestionTraceMapping(String sessionId, List<SearchResult> selectedEvidence) {
+        Map<Integer, String> traceMapping = new HashMap<>();
+        if (selectedEvidence != null) {
+            for (int i = 0; i < selectedEvidence.size(); i++) {
+                SearchResult result = selectedEvidence.get(i);
+                if (result.getIngestionTraceId() != null && !result.getIngestionTraceId().isBlank()) {
+                    traceMapping.put(i + 1, result.getIngestionTraceId());
+                }
+            }
+        }
+        sessionReferenceIngestionTraceMappings.put(sessionId, traceMapping);
+        logger.info("Reference ingestion trace mapping saved: sessionId={}, size={}", sessionId, traceMapping.size());
+    }
+
     private void sendResponseChunk(WebSocketSession session, String chunk) {
         try {
             if (!session.isOpen()) {
@@ -246,19 +281,20 @@ public class ChatHandler {
         }
     }
 
-    private void sendCompletionNotification(WebSocketSession session) {
+    private void sendCompletionNotification(WebSocketSession session, String chatTraceId) {
         try {
             if (!session.isOpen()) {
                 logger.debug("Skip completion notification because session is closed: sessionId={}", session.getId());
                 return;
             }
-            Map<String, Object> notification = Map.of(
-                    "type", "completion",
-                    "status", "finished",
-                    "message", "response finished",
-                    "timestamp", System.currentTimeMillis(),
-                    "date", LocalDateTime.now().toString()
-            );
+            Map<String, Object> notification = new HashMap<>();
+            notification.put("type", "completion");
+            notification.put("status", "finished");
+            notification.put("message", "response finished");
+            notification.put("timestamp", System.currentTimeMillis());
+            notification.put("date", LocalDateTime.now().toString());
+            notification.put("traceId", chatTraceId);
+            notification.put("chatTraceId", chatTraceId);
             session.sendMessage(new TextMessage(objectMapper.writeValueAsString(notification)));
         } catch (Exception e) {
             logger.error("Failed to send completion notification: {}", e.getMessage(), e);
@@ -306,8 +342,19 @@ public class ChatHandler {
         return referenceMapping.get(referenceNumber);
     }
 
+    public String getReferenceIngestionTraceId(String sessionId, int referenceNumber) {
+        Map<Integer, String> referenceMapping = sessionReferenceIngestionTraceMappings.get(sessionId);
+        return referenceMapping != null ? referenceMapping.get(referenceNumber) : null;
+    }
+
+    public String getChatTraceId(String sessionId) {
+        return sessionChatTraceIds.get(sessionId);
+    }
+
     public void clearSessionReferenceMapping(String sessionId) {
         Map<Integer, String> removed = sessionReferenceMappings.remove(sessionId);
+        sessionReferenceIngestionTraceMappings.remove(sessionId);
+        sessionChatTraceIds.remove(sessionId);
         logger.info("Reference mapping cleared: sessionId={}, removed={}", sessionId, removed != null);
         cleanupSession(sessionId);
     }

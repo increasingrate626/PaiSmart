@@ -8,6 +8,7 @@ import com.yizhaoqi.smartpai.service.FileTypeValidationService;
 import com.yizhaoqi.smartpai.service.UploadService;
 import com.yizhaoqi.smartpai.service.UserService;
 import com.yizhaoqi.smartpai.utils.LogUtils;
+import com.yizhaoqi.smartpai.utils.TraceContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -75,7 +76,10 @@ public class UploadController {
             @RequestParam(value = "isPublic", required = false, defaultValue = "false") boolean isPublic,
             @RequestParam("file") MultipartFile file,
             @RequestAttribute("userId") String userId) throws IOException {
-        
+        String ingestionTraceId = uploadService.getOrCreateIngestionTraceId(fileMd5, userId);
+        TraceContext.setTraceId(ingestionTraceId);
+        TraceContext.setIngestionTraceId(ingestionTraceId);
+        TraceContext.setUserId(userId);
         LogUtils.PerformanceMonitor monitor = LogUtils.startPerformanceMonitor("UPLOAD_CHUNK");
         try {
             // 文件类型验证（仅在第一个分片时进行验证）
@@ -125,7 +129,7 @@ public class UploadController {
         
             LogUtils.logFileOperation(userId, "UPLOAD_CHUNK", fileName, fileMd5, "PROCESSING");
         
-            uploadService.uploadChunk(fileMd5, chunkIndex, totalSize, fileName, file, orgTag, isPublic, userId);
+            uploadService.uploadChunk(fileMd5, chunkIndex, totalSize, fileName, file, orgTag, isPublic, userId, ingestionTraceId);
             
             List<Integer> uploadedChunks = uploadService.getUploadedChunks(fileMd5, userId);
             int actualTotalChunks = uploadService.getTotalChunks(fileMd5, userId);
@@ -139,6 +143,7 @@ public class UploadController {
             Map<String, Object> data = new HashMap<>();
             data.put("uploaded", uploadedChunks);
             data.put("progress", progress);
+            data.put("ingestionTraceId", ingestionTraceId);
             
             // 构建统一响应格式
             Map<String, Object> response = new HashMap<>();
@@ -228,7 +233,10 @@ public class UploadController {
     public ResponseEntity<Map<String, Object>> mergeFile(
             @RequestBody MergeRequest request,
             @RequestAttribute("userId") String userId) {
-        
+        String ingestionTraceId = uploadService.getOrCreateIngestionTraceId(request.fileMd5(), userId);
+        TraceContext.setTraceId(ingestionTraceId);
+        TraceContext.setIngestionTraceId(ingestionTraceId);
+        TraceContext.setUserId(userId);
         LogUtils.PerformanceMonitor monitor = LogUtils.startPerformanceMonitor("MERGE_FILE");
         try {
             String fileType = getFileType(request.fileName());
@@ -287,7 +295,8 @@ public class UploadController {
                     request.fileName(),
                     fileUpload.getUserId(),
                     fileUpload.getOrgTag(),
-                    fileUpload.isPublic()
+                    fileUpload.isPublic(),
+                    ingestionTraceId
             );
             
             LogUtils.logBusiness("MERGE_FILE", userId, "发送文件处理任务到Kafka(事务): topic=%s, fileMd5=%s, fileName=%s", 
@@ -301,6 +310,7 @@ public class UploadController {
             // 构建数据对象
             Map<String, Object> data = new HashMap<>();
             data.put("object_url", objectUrl);
+            data.put("ingestionTraceId", ingestionTraceId);
             
             // 构建统一响应格式
             Map<String, Object> response = new HashMap<>();
@@ -481,4 +491,3 @@ public class UploadController {
         }
     }
 }
-
