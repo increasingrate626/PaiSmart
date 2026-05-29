@@ -7,10 +7,15 @@ import com.yizhaoqi.smartpai.entity.agent.AgentPlan;
 import com.yizhaoqi.smartpai.entity.agent.AgenticRagRequest;
 import com.yizhaoqi.smartpai.entity.agent.AgenticRagResult;
 import com.yizhaoqi.smartpai.entity.agent.EvidenceAssessment;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
@@ -141,6 +146,32 @@ class AgenticRagServiceTest {
         assertTrue(ragResult.getReferenceMapping().isEmpty());
         assertTrue(ragResult.getTrace().stream().anyMatch(step -> "FALLBACK_SEARCH".equals(step.getStage())));
         verify(deepSeekClient, never()).completeJson(anyString(), anyString(), eq(EvidenceAssessment.class));
+    }
+
+    @Test
+    void writesAgentTraceStepsWithTraceIdToLogs() {
+        Logger agentLogger = (Logger) LoggerFactory.getLogger(AgenticRagService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        agentLogger.addAppender(appender);
+
+        try {
+            SearchResult result = result("file-a", 1, "allowed evidence", 0.9, "a.txt");
+            when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.empty());
+            when(searchService.searchWithPermission("plain question", "alice", 12)).thenReturn(List.of(result));
+
+            service.run(new AgenticRagRequest("alice", "plain question", List.of(), "session-1"));
+
+            assertTrue(appender.list.stream().anyMatch(event ->
+                    event.getLevel().equals(Level.INFO)
+                            && event.getFormattedMessage().contains("agentic_rag_trace")
+                            && event.getFormattedMessage().contains("traceId=session-1")
+                            && event.getFormattedMessage().contains("sessionId=session-1")
+                            && event.getFormattedMessage().contains("userId=alice")
+                            && event.getFormattedMessage().contains("stage=FALLBACK_SEARCH")));
+        } finally {
+            agentLogger.detachAppender(appender);
+        }
     }
 
     private AgenticRagRequest request(String userId, String message) {

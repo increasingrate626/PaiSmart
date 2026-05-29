@@ -57,6 +57,7 @@ public class AgenticRagService {
                     () -> deepSeekClient.completeJson(buildPlannerSystemPrompt(), buildPlannerUserPrompt(request), AgentPlan.class),
                     cfg.getPlannerTimeoutMs(),
                     "PLAN_QUERY",
+                    request,
                     trace,
                     request.getMessage()
             );
@@ -66,7 +67,7 @@ public class AgenticRagService {
             }
 
             AgentPlan plan = planOptional.get();
-            addTrace(trace, "PLAN_QUERY", 0, summarize(request.getMessage()), summarizePlan(plan), null);
+            addTrace(trace, request, "PLAN_QUERY", 0, summarize(request.getMessage()), summarizePlan(plan), null);
 
             List<SearchResult> evidence = new ArrayList<>();
             List<String> firstRoundQueries = normalizeQueries(plan.getSubQueries(), request.getMessage(), cfg.getMaxSubQueries());
@@ -104,11 +105,12 @@ public class AgenticRagService {
                 () -> deepSeekClient.completeJson(buildEvaluatorSystemPrompt(), userPrompt, EvidenceAssessment.class),
                 cfg.getEvaluatorTimeoutMs(),
                 "EVALUATE_EVIDENCE",
+                request,
                 trace,
                 summarize(request.getMessage())
         );
         result.ifPresent(assessment ->
-                addTrace(trace, "EVALUATE_EVIDENCE", 0, summarize(request.getMessage()), summarizeAssessment(assessment), null));
+                addTrace(trace, request, "EVALUATE_EVIDENCE", 0, summarize(request.getMessage()), summarizeAssessment(assessment), null));
         return result;
     }
 
@@ -123,9 +125,9 @@ public class AgenticRagService {
             try {
                 List<SearchResult> results = searchService.searchWithPermission(query, request.getUserId(), topK);
                 evidence.addAll(results);
-                addTrace(trace, stage, elapsedMs(start), summarize(query), "results=" + results.size(), null);
+                addTrace(trace, request, stage, elapsedMs(start), summarize(query), "results=" + results.size(), null);
             } catch (Exception e) {
-                addTrace(trace, stage, elapsedMs(start), summarize(query), "results=0", e.getMessage());
+                addTrace(trace, request, stage, elapsedMs(start), summarize(query), "results=0", e.getMessage());
                 logger.warn("Agentic RAG search failed for query: {}", query, e);
             }
         }
@@ -139,10 +141,10 @@ public class AgenticRagService {
                     request.getUserId(),
                     aiProperties.getAgentic().getFirstRoundTopK()
             );
-            addTrace(trace, "FALLBACK_SEARCH", elapsedMs(start), summarize(request.getMessage()), "results=" + results.size(), reason);
+            addTrace(trace, request, "FALLBACK_SEARCH", elapsedMs(start), summarize(request.getMessage()), "results=" + results.size(), reason);
             return buildResult(results, null, trace, aiProperties.getAgentic().getMaxContextChars());
         } catch (Exception e) {
-            addTrace(trace, "FALLBACK_SEARCH", elapsedMs(start), summarize(request.getMessage()), "results=0", e.getMessage());
+            addTrace(trace, request, "FALLBACK_SEARCH", elapsedMs(start), summarize(request.getMessage()), "results=0", e.getMessage());
             logger.error("Agentic RAG fallback search failed", e);
             return buildResult(List.of(), null, trace, aiProperties.getAgentic().getMaxContextChars());
         }
@@ -233,6 +235,7 @@ public class AgenticRagService {
     private <T> Optional<T> callWithTimeout(JsonCall<T> call,
                                             int timeoutMs,
                                             String stage,
+                                            AgenticRagRequest request,
                                             List<AgentTraceStep> trace,
                                             String inputSummary) {
         long start = System.nanoTime();
@@ -240,11 +243,11 @@ public class AgenticRagService {
             Optional<T> result = CompletableFuture.supplyAsync(call::execute)
                     .get(timeoutMs, TimeUnit.MILLISECONDS);
             if (result.isEmpty()) {
-                addTrace(trace, stage, elapsedMs(start), summarize(inputSummary), "empty", "empty or invalid JSON");
+                addTrace(trace, request, stage, elapsedMs(start), summarize(inputSummary), "empty", "empty or invalid JSON");
             }
             return result;
         } catch (Exception e) {
-            addTrace(trace, stage, elapsedMs(start), summarize(inputSummary), "empty", e.getMessage());
+            addTrace(trace, request, stage, elapsedMs(start), summarize(inputSummary), "empty", e.getMessage());
             logger.warn("Agentic RAG stage {} failed", stage, e);
             return Optional.empty();
         }
@@ -322,12 +325,37 @@ public class AgenticRagService {
     }
 
     private void addTrace(List<AgentTraceStep> trace,
+                          AgenticRagRequest request,
                           String stage,
                           long durationMs,
                           String inputSummary,
                           String outputSummary,
                           String failureReason) {
-        trace.add(new AgentTraceStep(stage, durationMs, summarize(inputSummary), summarize(outputSummary), failureReason));
+        String safeInput = summarize(inputSummary);
+        String safeOutput = summarize(outputSummary);
+        String safeFailure = summarize(failureReason);
+        trace.add(new AgentTraceStep(stage, durationMs, safeInput, safeOutput, safeFailure));
+        logger.info(
+                "agentic_rag_trace traceId={} sessionId={} userId={} stage={} durationMs={} inputSummary=\"{}\" outputSummary=\"{}\" failureReason=\"{}\"",
+                traceId(request),
+                request.getSessionId(),
+                request.getUserId(),
+                stage,
+                durationMs,
+                safeInput,
+                safeOutput,
+                safeFailure
+        );
+    }
+
+    private String traceId(AgenticRagRequest request) {
+        if (request.getTraceId() != null && !request.getTraceId().isBlank()) {
+            return request.getTraceId();
+        }
+        if (request.getSessionId() != null && !request.getSessionId().isBlank()) {
+            return request.getSessionId();
+        }
+        return "unknown";
     }
 
     private String summarizePlan(AgentPlan plan) {

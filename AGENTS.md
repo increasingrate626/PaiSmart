@@ -283,6 +283,7 @@ Existing correlation anchors:
 - Upload, parse, vectorization, and search can usually be correlated by `fileMd5`.
 - User operations commonly include `userId` or username.
 - Agentic RAG internally returns `AgentTraceStep` objects with stage, duration, input summary, output summary, and failure reason.
+- Agentic RAG emits `agentic_rag_trace` INFO logs with `traceId`, `sessionId`, `userId`, `stage`, `durationMs`, `inputSummary`, `outputSummary`, and `failureReason`.
 
 Main log files:
 
@@ -297,6 +298,7 @@ Useful local checks:
 
 ```bash
 rg "sessionId=<id>|Start chat processing|Reference mapping|DeepSeek|searchWithPermission|completion" logs
+rg "agentic_rag_trace traceId=<id>" logs
 rg "fileMd5=<md5>|MERGE_FILE|Kafka|PARSE|vector|knowledge_base" logs
 rg "reference-md5|GET_REFERENCE_MD5|Reference mapping" logs
 ```
@@ -305,7 +307,7 @@ Known traceability gaps:
 
 - No single `traceId` currently spans upload, Kafka, parse, vectorization, ES indexing, chat, Agentic RAG, LLM generation, and citation lookup.
 - WebSocket logging is not fully MDC-correlated in the same way as normal HTTP requests.
-- `AgentTraceStep` is not yet consistently emitted as structured JSON logs.
+- Agentic trace logs are emitted as text logs, not structured JSON logs.
 - Logs are text-oriented, not JSON logs designed for ELK/Loki/OpenSearch ingestion.
 
 If adding observability, prefer a `traceId` propagated through MDC, WebSocket session attributes, Kafka headers, Agentic RAG trace events, and citation lookup.
