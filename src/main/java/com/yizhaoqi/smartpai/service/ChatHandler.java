@@ -85,7 +85,7 @@ public class ChatHandler {
                     ragResult.getFinalContext(),
                     history,
                     chunk -> handleStreamChunk(session, chunk),
-                    error -> handleStreamError(session, responseFuture, error)
+                    error -> handleStreamError(session, responseFuture, error, conversationId, userId, userMessage, ragResult, chatTraceId)
             );
 
             startCompletionWatcher(session, conversationId, userId, userMessage, responseFuture, chatTraceId);
@@ -114,11 +114,41 @@ public class ChatHandler {
 
     private void handleStreamError(WebSocketSession session,
                                    CompletableFuture<String> responseFuture,
-                                   Throwable error) {
+                                   Throwable error,
+                                   String conversationId,
+                                   String userId,
+                                   String userMessage,
+                                   AgenticRagResult ragResult,
+                                   String chatTraceId) {
+        String sessionId = session.getId();
+        if (Boolean.TRUE.equals(stopFlags.get(sessionId))) {
+            logger.info("Skip final fallback because stop flag is set: sessionId={}, chatTraceId={}", sessionId, chatTraceId);
+            responseFuture.complete("");
+            cleanupSession(sessionId);
+            return;
+        }
+
+        List<SearchResult> evidence = ragResult != null && ragResult.getSelectedEvidence() != null
+                ? ragResult.getSelectedEvidence()
+                : List.of();
+        logger.warn("chat_final_fallback sessionId={} userId={} chatTraceId={} evidenceCount={} reason={}",
+                sessionId, userId, chatTraceId, evidence.size(), error.getMessage(), error);
+
+        if (!evidence.isEmpty()) {
+            String fallbackResponse = buildEvidenceSummaryFallback(evidence);
+            handleStreamChunk(session, fallbackResponse);
+            if (responseFuture.complete(fallbackResponse)) {
+                sendCompletionNotification(session, chatTraceId);
+                updateConversationHistory(conversationId, userMessage, fallbackResponse);
+                cleanupSession(sessionId);
+            }
+            return;
+        }
+
         handleError(session, error);
-        sendCompletionNotification(session, sessionChatTraceIds.get(session.getId()));
+        sendCompletionNotification(session, chatTraceId);
         responseFuture.completeExceptionally(error);
-        cleanupSession(session.getId());
+        cleanupSession(sessionId);
     }
 
     private void startCompletionWatcher(WebSocketSession session,
@@ -299,6 +329,31 @@ public class ChatHandler {
         } catch (Exception e) {
             logger.error("Failed to send completion notification: {}", e.getMessage(), e);
         }
+    }
+
+    private String buildEvidenceSummaryFallback(List<SearchResult> evidence) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("AI 生成暂时不可用。以下是本次检索到的相关证据摘要：\n");
+        for (int i = 0; i < evidence.size(); i++) {
+            SearchResult result = evidence.get(i);
+            String fileName = result.getFileName() != null && !result.getFileName().isBlank()
+                    ? result.getFileName()
+                    : "unknown";
+            String snippet = result.getTextContent() != null ? result.getTextContent().replaceAll("\\s+", " ").trim() : "";
+            if (snippet.length() > 180) {
+                snippet = snippet.substring(0, 180);
+            }
+            builder.append("\n")
+                    .append(i + 1)
+                    .append(". ")
+                    .append(snippet)
+                    .append(" (来源#")
+                    .append(i + 1)
+                    .append(": ")
+                    .append(fileName)
+                    .append(")");
+        }
+        return builder.toString();
     }
 
     private void handleError(WebSocketSession session, Throwable error) {

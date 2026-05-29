@@ -3,10 +3,12 @@ package com.yizhaoqi.smartpai.service;
 import com.yizhaoqi.smartpai.client.DeepSeekClient;
 import com.yizhaoqi.smartpai.config.AiProperties;
 import com.yizhaoqi.smartpai.entity.SearchResult;
+import com.yizhaoqi.smartpai.entity.agent.AgentEntities;
 import com.yizhaoqi.smartpai.entity.agent.AgentPlan;
 import com.yizhaoqi.smartpai.entity.agent.AgenticRagRequest;
 import com.yizhaoqi.smartpai.entity.agent.AgenticRagResult;
 import com.yizhaoqi.smartpai.entity.agent.EvidenceAssessment;
+import com.yizhaoqi.smartpai.entity.graph.GraphSearchResult;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -23,10 +25,12 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,6 +41,9 @@ class AgenticRagServiceTest {
 
     @Mock
     private DeepSeekClient deepSeekClient;
+
+    @Mock
+    private GraphSearchService graphSearchService;
 
     private AiProperties aiProperties;
     private AgenticRagService service;
@@ -52,7 +59,7 @@ class AgenticRagServiceTest {
         aiProperties.getAgentic().setFirstRoundTopK(12);
         aiProperties.getAgentic().setRewriteRoundTopK(8);
         aiProperties.getAgentic().setMaxContextChars(220);
-        service = new AgenticRagService(searchService, deepSeekClient, aiProperties);
+        service = new AgenticRagService(searchService, graphSearchService, deepSeekClient, aiProperties);
     }
 
     @Test
@@ -149,6 +156,204 @@ class AgenticRagServiceTest {
     }
 
     @Test
+    void usesRankedEvidenceWhenEvaluatorFails() {
+        AgentPlan plan = new AgentPlan();
+        plan.setSubQueries(List.of("agentic fallback"));
+
+        SearchResult result = result("file-a", 1, "usable evidence", 0.8, "a.txt");
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.empty());
+        when(searchService.searchWithPermission("agentic fallback", "alice", 12)).thenReturn(List.of(result));
+
+        AgenticRagResult ragResult = service.run(new AgenticRagRequest("alice", "plain question", List.of(), "session-1", "trace-123"));
+
+        assertEquals(1, ragResult.getSelectedEvidence().size());
+        assertTrue(ragResult.getFinalContext().contains("usable evidence"));
+        assertTrue(ragResult.getTrace().stream().anyMatch(step ->
+                "EVALUATOR_FALLBACK".equals(step.getStage())
+                        && "evaluator_empty_or_invalid".equals(step.getFailureReason())));
+        verify(searchService, never()).searchWithPermission(anyString(), eq("alice"), eq(8));
+    }
+
+    @Test
+    void continuesFirstRoundWhenOneSearchQueryFails() {
+        AgentPlan plan = new AgentPlan();
+        plan.setSubQueries(List.of("broken query", "working query"));
+
+        EvidenceAssessment assessment = new EvidenceAssessment();
+        assessment.setSufficient(true);
+
+        SearchResult result = result("file-a", 1, "working evidence", 0.9, "a.txt");
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
+        when(searchService.searchWithPermission("broken query", "alice", 12)).thenThrow(new RuntimeException("es shard down"));
+        when(searchService.searchWithPermission("working query", "alice", 12)).thenReturn(List.of(result));
+
+        AgenticRagResult ragResult = service.run(request("alice", "plain question"));
+
+        assertEquals(1, ragResult.getSelectedEvidence().size());
+        assertTrue(ragResult.getFinalContext().contains("working evidence"));
+        assertTrue(ragResult.getTrace().stream().anyMatch(step ->
+                "SEARCH".equals(step.getStage())
+                        && step.getFailureReason().contains("es shard down")));
+        verify(searchService).searchWithPermission("working query", "alice", 12);
+    }
+
+    @Test
+    void keepsFirstRoundEvidenceWhenRewriteSearchFails() {
+        AgentPlan plan = new AgentPlan();
+        plan.setSubQueries(List.of("first query"));
+
+        EvidenceAssessment insufficient = new EvidenceAssessment();
+        insufficient.setSufficient(false);
+        insufficient.setRewriteQueries(List.of("rewrite query"));
+
+        SearchResult result = result("file-a", 1, "first round evidence", 0.8, "a.txt");
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(insufficient));
+        when(searchService.searchWithPermission("first query", "alice", 12)).thenReturn(List.of(result));
+        when(searchService.searchWithPermission("rewrite query", "alice", 8)).thenThrow(new RuntimeException("rewrite search down"));
+
+        AgenticRagResult ragResult = service.run(request("alice", "plain question"));
+
+        assertEquals(1, ragResult.getSelectedEvidence().size());
+        assertTrue(ragResult.getFinalContext().contains("first round evidence"));
+        assertTrue(ragResult.getTrace().stream().anyMatch(step ->
+                "REWRITE_SEARCH".equals(step.getStage())
+                        && step.getFailureReason().contains("rewrite search down")));
+        verify(deepSeekClient, times(1)).completeJson(anyString(), anyString(), eq(EvidenceAssessment.class));
+    }
+
+    @Test
+    void marksSearchAllFailedWhenEveryFirstRoundQueryFails() {
+        AgentPlan plan = new AgentPlan();
+        plan.setSubQueries(List.of("broken a", "broken b"));
+
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(searchService.searchWithPermission("broken a", "alice", 12)).thenThrow(new RuntimeException("es a down"));
+        when(searchService.searchWithPermission("broken b", "alice", 12)).thenThrow(new RuntimeException("es b down"));
+
+        AgenticRagResult ragResult = service.run(new AgenticRagRequest("alice", "plain question", List.of(), "session-1", "trace-123"));
+
+        assertEquals("", ragResult.getFinalContext());
+        assertTrue(ragResult.getSelectedEvidence().isEmpty());
+        assertTrue(ragResult.getReferenceMapping().isEmpty());
+        assertTrue(ragResult.getTrace().stream().anyMatch(step ->
+                "SEARCH_ALL_FAILED".equals(step.getStage())
+                        && "first_round_search_all_failed".equals(step.getFailureReason())));
+        verify(deepSeekClient, never()).completeJson(anyString(), anyString(), eq(EvidenceAssessment.class));
+    }
+
+    @Test
+    void writesFallbackAuditWhenDetailedDecisionLoggingIsEnabled() {
+        Logger agentLogger = (Logger) LoggerFactory.getLogger(AgenticRagService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        agentLogger.addAppender(appender);
+
+        try {
+            aiProperties.getAgentic().setLogLlmDecisions(true);
+
+            AgentPlan plan = new AgentPlan();
+            plan.setSubQueries(List.of("agentic fallback"));
+            SearchResult result = result("file-a", 1, "usable evidence", 0.8, "a.txt");
+
+            when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+            when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.empty());
+            when(searchService.searchWithPermission("agentic fallback", "alice", 12)).thenReturn(List.of(result));
+
+            service.run(new AgenticRagRequest("alice", "plain question", List.of(), "session-1", "trace-123"));
+
+            List<String> messages = appender.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
+            assertTrue(messages.stream().anyMatch(message ->
+                    message.contains("agentic_rag_fallback")
+                            && message.contains("traceId=trace-123")
+                            && message.contains("chatTraceId=trace-123")
+                            && message.contains("stage=EVALUATOR_FALLBACK")
+                            && message.contains("reason=evaluator_empty_or_invalid")
+                            && message.contains("action=use_ranked_evidence")
+                            && message.contains("evidenceCount=1")));
+        } finally {
+            agentLogger.detachAppender(appender);
+        }
+    }
+
+    @Test
+    void triggersGraphSearchWhenPlannerExtractsScaEntities() {
+        AgentPlan plan = new AgentPlan();
+        plan.setSubQueries(List.of("log4j cve"));
+        AgentEntities entities = new AgentEntities();
+        entities.setComponents(List.of("log4j-core"));
+        entities.setVersions(List.of("2.14.1"));
+        entities.setCves(List.of("CVE-2021-44228"));
+        plan.setEntities(entities);
+
+        EvidenceAssessment assessment = new EvidenceAssessment();
+        assessment.setSufficient(true);
+
+        SearchResult textResult = result("file-doc", 1, "text evidence", 0.7, "doc.txt");
+        GraphSearchResult graphResult = new GraphSearchResult();
+        graphResult.setPathText("log4j-core 2.14.1 --AFFECTED_BY--> CVE-2021-44228 --FIXED_IN--> 2.15.0");
+        graphResult.setFileMd5("file-graph");
+        graphResult.setChunkId(2);
+        graphResult.setScore(0.95d);
+        graphResult.setFileName("advisory.txt");
+        graphResult.setIngestionTraceId("trc-ingest-graph");
+
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
+        when(searchService.searchWithPermission("log4j cve", "alice", 12)).thenReturn(List.of(textResult));
+        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(8))).thenReturn(List.of(graphResult));
+
+        AgenticRagResult ragResult = service.run(new AgenticRagRequest("alice", "log4j 2.14.1 受影响吗", List.of(), "session-1", "trace-123"));
+
+        assertTrue(ragResult.getFinalContext().contains("[GRAPH#1] log4j-core 2.14.1 --AFFECTED_BY--> CVE-2021-44228"));
+        assertTrue(ragResult.getReferenceMapping().containsValue("file-graph"));
+        verify(graphSearchService).searchWithPermission(any(), eq("alice"), eq(8));
+    }
+
+    @Test
+    void doesNotTriggerGraphSearchWhenPlannerHasNoScaEntities() {
+        AgentPlan plan = new AgentPlan();
+        plan.setSubQueries(List.of("ordinary question"));
+
+        EvidenceAssessment assessment = new EvidenceAssessment();
+        assessment.setSufficient(true);
+
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
+        when(searchService.searchWithPermission("ordinary question", "alice", 12)).thenReturn(List.of(result("file-a", 1, "plain evidence", 0.8, "a.txt")));
+
+        service.run(request("alice", "ordinary question"));
+
+        verify(graphSearchService, never()).searchWithPermission(any(), anyString(), anyInt());
+    }
+
+    @Test
+    void keepsTextEvidenceWhenGraphSearchFails() {
+        AgentPlan plan = new AgentPlan();
+        plan.setSubQueries(List.of("log4j cve"));
+        AgentEntities entities = new AgentEntities();
+        entities.setCves(List.of("CVE-2021-44228"));
+        plan.setEntities(entities);
+
+        EvidenceAssessment assessment = new EvidenceAssessment();
+        assessment.setSufficient(true);
+
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
+        when(searchService.searchWithPermission("log4j cve", "alice", 12)).thenReturn(List.of(result("file-a", 1, "text evidence", 0.8, "a.txt")));
+        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(8))).thenThrow(new RuntimeException("graph db down"));
+
+        AgenticRagResult ragResult = service.run(new AgenticRagRequest("alice", "log4j cve", List.of(), "session-1", "trace-123"));
+
+        assertTrue(ragResult.getFinalContext().contains("text evidence"));
+        assertTrue(ragResult.getTrace().stream().anyMatch(step ->
+                "GRAPH_SEARCH_FAILED".equals(step.getStage())
+                        && step.getFailureReason().contains("graph db down")));
+    }
+
+    @Test
     void writesAgentTraceStepsWithTraceIdToLogs() {
         Logger agentLogger = (Logger) LoggerFactory.getLogger(AgenticRagService.class);
         ListAppender<ILoggingEvent> appender = new ListAppender<>();
@@ -230,6 +435,81 @@ class AgenticRagServiceTest {
         } finally {
             agentLogger.detachAppender(appender);
         }
+    }
+
+    @Test
+    void skipsDuplicateRewriteQueriesAndAuditsWhenAllRewritesAlreadySearched() {
+        Logger agentLogger = (Logger) LoggerFactory.getLogger(AgenticRagService.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        agentLogger.addAppender(appender);
+
+        try {
+            aiProperties.getAgentic().setLogLlmDecisions(true);
+
+            AgentPlan plan = new AgentPlan();
+            plan.setIntent("explain");
+            plan.setSubQueries(List.of("Agentic RAG Test"));
+
+            EvidenceAssessment assessment = new EvidenceAssessment();
+            assessment.setSufficient(false);
+            assessment.setSelectedChunkIds(List.of("file-a:1"));
+            assessment.setRewriteQueries(List.of(" agentic   rag   test "));
+
+            SearchResult result = result("file-a", 1, "allowed evidence", 0.9, "a.txt");
+            when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+            when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
+            when(searchService.searchWithPermission("Agentic RAG Test", "alice", 12)).thenReturn(List.of(result));
+
+            service.run(new AgenticRagRequest("alice", "plain question", List.of(), "session-1", "trace-123"));
+
+            verify(searchService).searchWithPermission("Agentic RAG Test", "alice", 12);
+            verify(searchService, never()).searchWithPermission(anyString(), eq("alice"), eq(8));
+            verify(deepSeekClient, times(1)).completeJson(anyString(), anyString(), eq(EvidenceAssessment.class));
+
+            List<String> messages = appender.list.stream().map(ILoggingEvent::getFormattedMessage).toList();
+            assertTrue(messages.stream().anyMatch(message ->
+                    message.contains("agentic_rag_rewrite_skipped")
+                            && message.contains("traceId=trace-123")
+                            && message.contains("chatTraceId=trace-123")
+                            && message.contains("reason=duplicate_rewrite_queries")
+                            && message.contains("agentic rag test")));
+        } finally {
+            agentLogger.detachAppender(appender);
+        }
+    }
+
+    @Test
+    void searchesOnlyNewRewriteQueriesWhenEvaluatorReturnsMixedDuplicates() {
+        AgentPlan plan = new AgentPlan();
+        plan.setIntent("explain");
+        plan.setSubQueries(List.of("Agentic RAG Test"));
+
+        EvidenceAssessment insufficient = new EvidenceAssessment();
+        insufficient.setSufficient(false);
+        insufficient.setRewriteQueries(List.of("agentic rag test", "Agentic RAG extra detail"));
+
+        EvidenceAssessment sufficient = new EvidenceAssessment();
+        sufficient.setSufficient(true);
+        sufficient.setSelectedChunkIds(List.of("file-a:1", "file-b:2"));
+
+        SearchResult first = result("file-a", 1, "first evidence", 0.8, "a.txt");
+        SearchResult second = result("file-b", 2, "second evidence", 0.9, "b.txt");
+
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class)))
+                .thenReturn(Optional.of(insufficient))
+                .thenReturn(Optional.of(sufficient));
+        when(searchService.searchWithPermission("Agentic RAG Test", "alice", 12)).thenReturn(List.of(first));
+        when(searchService.searchWithPermission("Agentic RAG extra detail", "alice", 8)).thenReturn(List.of(second));
+
+        AgenticRagResult ragResult = service.run(new AgenticRagRequest("alice", "plain question", List.of(), "session-1", "trace-123"));
+
+        assertEquals(2, ragResult.getSelectedEvidence().size());
+        verify(searchService).searchWithPermission("Agentic RAG Test", "alice", 12);
+        verify(searchService).searchWithPermission("Agentic RAG extra detail", "alice", 8);
+        verify(searchService, never()).searchWithPermission("agentic rag test", "alice", 8);
+        verify(deepSeekClient, times(2)).completeJson(anyString(), anyString(), eq(EvidenceAssessment.class));
     }
 
     private AgenticRagRequest request(String userId, String message) {

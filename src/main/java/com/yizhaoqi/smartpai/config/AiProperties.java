@@ -41,6 +41,7 @@ public class AiProperties {
     @Data
     public static class Agentic {
         private boolean enabled = true;
+        private Graph graph = new Graph();
         private int maxSearchRounds = 2;
         private int plannerTimeoutMs = 1500;
         private int evaluatorTimeoutMs = 1500;
@@ -52,5 +53,13 @@ public class AiProperties {
         private int firstRoundTopK = 12;
         private int rewriteRoundTopK = 8;
         private int maxSubQueries = 4;
+    }
+
+    @Data
+    public static class Graph {
+        private boolean enabled = true;
+        private int maxDepth = 2;
+        private int topK = 8;
+        private boolean extractionEnabled = true;
     }
 }

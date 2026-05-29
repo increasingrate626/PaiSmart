@@ -8,10 +8,13 @@ import com.yizhaoqi.smartpai.entity.agent.AgentTraceStep;
 import com.yizhaoqi.smartpai.entity.agent.AgenticRagRequest;
 import com.yizhaoqi.smartpai.entity.agent.AgenticRagResult;
 import com.yizhaoqi.smartpai.entity.agent.EvidenceAssessment;
+import com.yizhaoqi.smartpai.entity.graph.GraphSearchRequest;
+import com.yizhaoqi.smartpai.entity.graph.GraphSearchResult;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -21,11 +24,13 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,6 +40,7 @@ public class AgenticRagService {
     private static final int MAX_SNIPPET_LEN = 300;
 
     private final HybridSearchService searchService;
+    private final GraphSearchService graphSearchService;
     private final DeepSeekClient deepSeekClient;
     private final AiProperties aiProperties;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -42,7 +48,16 @@ public class AgenticRagService {
     public AgenticRagService(HybridSearchService searchService,
                              DeepSeekClient deepSeekClient,
                              AiProperties aiProperties) {
+        this(searchService, null, deepSeekClient, aiProperties);
+    }
+
+    @Autowired
+    public AgenticRagService(HybridSearchService searchService,
+                             GraphSearchService graphSearchService,
+                             DeepSeekClient deepSeekClient,
+                             AiProperties aiProperties) {
         this.searchService = searchService;
+        this.graphSearchService = graphSearchService;
         this.deepSeekClient = deepSeekClient;
         this.aiProperties = aiProperties;
     }
@@ -56,7 +71,7 @@ public class AgenticRagService {
         }
 
         try {
-            Optional<AgentPlan> planOptional = callWithTimeout(
+            JsonStageResult<AgentPlan> planResult = callWithTimeout(
                     () -> deepSeekClient.completeJson(buildPlannerSystemPrompt(), buildPlannerUserPrompt(request), AgentPlan.class),
                     cfg.getPlannerTimeoutMs(),
                     "PLAN_QUERY",
@@ -65,17 +80,28 @@ public class AgenticRagService {
                     request.getMessage()
             );
 
-            if (planOptional.isEmpty()) {
-                return fallbackSearch(request, trace, "planner failed");
+            if (planResult.value().isEmpty()) {
+                auditFallback(request, "PLAN_QUERY", planResult.failureReason(), "fallback_search", evidenceCount(List.of()));
+                return fallbackSearch(request, trace, planResult.failureReason());
             }
 
-            AgentPlan plan = planOptional.get();
+            AgentPlan plan = planResult.value().get();
             addTrace(trace, request, "PLAN_QUERY", 0, summarize(request.getMessage()), summarizePlan(plan), null);
             auditLlmDecision(request, "PLAN_QUERY", buildPlannerUserPrompt(request), plan);
 
             List<SearchResult> evidence = new ArrayList<>();
-            List<String> firstRoundQueries = normalizeQueries(plan.getSubQueries(), request.getMessage(), cfg.getMaxSubQueries());
-            searchQueries(request, firstRoundQueries, cfg.getFirstRoundTopK(), evidence, trace, "SEARCH");
+            Set<String> searchedQueryKeys = new LinkedHashSet<>();
+            List<String> firstRoundQueries = filterNewQueries(
+                    normalizeQueries(plan.getSubQueries(), request.getMessage(), cfg.getMaxSubQueries()),
+                    searchedQueryKeys
+            );
+            SearchExecution firstRoundSearch = searchQueries(request, firstRoundQueries, cfg.getFirstRoundTopK(), evidence, trace, "SEARCH");
+            searchGraphIfNeeded(request, plan, evidence, trace, cfg);
+            if (evidence.isEmpty() && firstRoundSearch.allQueriesFailed()) {
+                addTrace(trace, request, "SEARCH_ALL_FAILED", 0, summarize(firstRoundQueries.toString()), "results=0", "first_round_search_all_failed");
+                auditFallback(request, "SEARCH_ALL_FAILED", "first_round_search_all_failed", "return_empty_context", evidenceCount(evidence));
+                return buildResult(request, List.of(), null, trace, cfg.getMaxContextChars());
+            }
 
             Optional<EvidenceAssessment> assessmentOptional = assessEvidence(request, plan, evidence, trace, cfg);
             EvidenceAssessment assessment = assessmentOptional.orElse(null);
@@ -87,9 +113,18 @@ public class AgenticRagService {
                     && !assessment.getRewriteQueries().isEmpty();
 
             if (canRewrite) {
-                List<String> rewriteQueries = normalizeQueries(assessment.getRewriteQueries(), request.getMessage(), cfg.getMaxSubQueries());
-                searchQueries(request, rewriteQueries, cfg.getRewriteRoundTopK(), evidence, trace, "REWRITE_SEARCH");
-                assessment = assessEvidence(request, plan, evidence, trace, cfg).orElse(assessment);
+                List<String> rewriteCandidates = normalizeQueries(assessment.getRewriteQueries(), request.getMessage(), cfg.getMaxSubQueries());
+                List<String> rewriteQueries = filterNewQueries(rewriteCandidates, searchedQueryKeys);
+                if (rewriteQueries.isEmpty()) {
+                    auditRewriteSkipped(request, rewriteCandidates);
+                } else {
+                    SearchExecution rewriteSearch = searchQueries(request, rewriteQueries, cfg.getRewriteRoundTopK(), evidence, trace, "REWRITE_SEARCH");
+                    if (rewriteSearch.allQueriesFailed()) {
+                        auditFallback(request, "REWRITE_SEARCH", "rewrite_search_all_failed", "use_first_round_evidence", evidenceCount(evidence));
+                    } else {
+                        assessment = assessEvidence(request, plan, evidence, trace, cfg).orElse(assessment);
+                    }
+                }
             }
 
             return buildResult(request, evidence, assessment, trace, cfg.getMaxContextChars());
@@ -105,7 +140,7 @@ public class AgenticRagService {
                                                         List<AgentTraceStep> trace,
                                                         AiProperties.Agentic cfg) {
         String userPrompt = buildEvaluatorUserPrompt(request, plan, deduplicateAndSort(evidence));
-        Optional<EvidenceAssessment> result = callWithTimeout(
+        JsonStageResult<EvidenceAssessment> result = callWithTimeout(
                 () -> deepSeekClient.completeJson(buildEvaluatorSystemPrompt(), userPrompt, EvidenceAssessment.class),
                 cfg.getEvaluatorTimeoutMs(),
                 "EVALUATE_EVIDENCE",
@@ -113,32 +148,98 @@ public class AgenticRagService {
                 trace,
                 summarize(request.getMessage())
         );
-        result.ifPresent(assessment ->
+        result.value().ifPresent(assessment ->
         {
             addTrace(trace, request, "EVALUATE_EVIDENCE", 0, summarize(request.getMessage()), summarizeAssessment(assessment), null);
             auditLlmDecision(request, "EVALUATE_EVIDENCE", userPrompt, assessment);
         });
-        return result;
+        if (result.value().isEmpty()) {
+            addTrace(trace, request, "EVALUATOR_FALLBACK", 0, summarize(request.getMessage()), "use_ranked_evidence", result.failureReason());
+            auditFallback(request, "EVALUATOR_FALLBACK", result.failureReason(), "use_ranked_evidence", evidenceCount(evidence));
+        }
+        return result.value();
     }
 
-    private void searchQueries(AgenticRagRequest request,
-                               List<String> queries,
-                               int topK,
-                               List<SearchResult> evidence,
-                               List<AgentTraceStep> trace,
-                               String stage) {
+    private SearchExecution searchQueries(AgenticRagRequest request,
+                                          List<String> queries,
+                                          int topK,
+                                          List<SearchResult> evidence,
+                                          List<AgentTraceStep> trace,
+                                          String stage) {
+        int failures = 0;
+        int resultCount = 0;
         for (String query : queries) {
             long start = System.nanoTime();
             try {
                 List<SearchResult> results = searchService.searchWithPermission(query, request.getUserId(), topK);
                 evidence.addAll(results);
+                resultCount += results.size();
                 addTrace(trace, request, stage, elapsedMs(start), summarize(query), "results=" + results.size(), null);
                 auditSearch(request, stage, query, results);
             } catch (Exception e) {
+                failures++;
                 addTrace(trace, request, stage, elapsedMs(start), summarize(query), "results=0", e.getMessage());
+                auditFallback(request, stage, safeFailureReason(e), "continue_other_queries", evidenceCount(evidence));
                 logger.warn("Agentic RAG search failed for query: {}", query, e);
             }
         }
+        return new SearchExecution(queries.size(), failures, resultCount);
+    }
+
+    private void searchGraphIfNeeded(AgenticRagRequest request,
+                                     AgentPlan plan,
+                                     List<SearchResult> evidence,
+                                     List<AgentTraceStep> trace,
+                                     AiProperties.Agentic cfg) {
+        if (graphSearchService == null
+                || cfg.getGraph() == null
+                || !cfg.getGraph().isEnabled()
+                || plan.getEntities() == null
+                || !plan.getEntities().hasAny()) {
+            return;
+        }
+
+        long start = System.nanoTime();
+        try {
+            GraphSearchRequest graphRequest = new GraphSearchRequest(plan.getEntities(), cfg.getGraph().getMaxDepth());
+            List<GraphSearchResult> graphResults = graphSearchService.searchWithPermission(
+                    graphRequest,
+                    request.getUserId(),
+                    cfg.getGraph().getTopK()
+            );
+            List<SearchResult> graphEvidence = toGraphEvidence(graphResults, request);
+            evidence.addAll(graphEvidence);
+            addTrace(trace, request, "GRAPH_SEARCH", elapsedMs(start), summarize(plan.getEntities().toString()), "results=" + graphResults.size(), null);
+            auditGraphSearch(request, plan, graphResults);
+        } catch (Exception e) {
+            addTrace(trace, request, "GRAPH_SEARCH_FAILED", elapsedMs(start), summarize(plan.getEntities().toString()), "results=0", safeFailureReason(e));
+            auditFallback(request, "GRAPH_SEARCH_FAILED", safeFailureReason(e), "continue_text_evidence", evidenceCount(evidence));
+            logger.warn("Agentic RAG graph search failed", e);
+        }
+    }
+
+    private List<SearchResult> toGraphEvidence(List<GraphSearchResult> graphResults, AgenticRagRequest request) {
+        List<SearchResult> converted = new ArrayList<>();
+        if (graphResults == null) {
+            return converted;
+        }
+        int index = 1;
+        for (GraphSearchResult graphResult : graphResults) {
+            String text = "[GRAPH#" + index + "] " + (graphResult.getPathText() != null ? graphResult.getPathText() : "");
+            converted.add(new SearchResult(
+                    graphResult.getFileMd5(),
+                    graphResult.getChunkId(),
+                    text,
+                    graphResult.getScore(),
+                    request.getUserId(),
+                    null,
+                    false,
+                    graphResult.getFileName() != null ? graphResult.getFileName() : "graph",
+                    graphResult.getIngestionTraceId()
+            ));
+            index++;
+        }
+        return converted;
     }
 
     private AgenticRagResult fallbackSearch(AgenticRagRequest request, List<AgentTraceStep> trace, String reason) {
@@ -243,33 +344,54 @@ public class AgenticRagService {
         return new ContextBuildResult(context.toString(), includedEvidence, referenceMapping);
     }
 
-    private <T> Optional<T> callWithTimeout(JsonCall<T> call,
-                                            int timeoutMs,
-                                            String stage,
-                                            AgenticRagRequest request,
-                                            List<AgentTraceStep> trace,
-                                            String inputSummary) {
+    private <T> JsonStageResult<T> callWithTimeout(JsonCall<T> call,
+                                                   int timeoutMs,
+                                                   String stage,
+                                                   AgenticRagRequest request,
+                                                   List<AgentTraceStep> trace,
+                                                   String inputSummary) {
         long start = System.nanoTime();
         try {
             Optional<T> result = CompletableFuture.supplyAsync(call::execute)
                     .get(timeoutMs, TimeUnit.MILLISECONDS);
             if (result.isEmpty()) {
                 addTrace(trace, request, stage, elapsedMs(start), summarize(inputSummary), "empty", "empty or invalid JSON");
+                return new JsonStageResult<>(Optional.empty(), stageFailureReason(stage, "empty_or_invalid"));
             }
-            return result;
+            return new JsonStageResult<>(result, "");
+        } catch (TimeoutException e) {
+            String reason = stageFailureReason(stage, "timeout");
+            addTrace(trace, request, stage, elapsedMs(start), summarize(inputSummary), "empty", reason);
+            logger.warn("Agentic RAG stage {} timed out", stage, e);
+            return new JsonStageResult<>(Optional.empty(), reason);
         } catch (Exception e) {
-            addTrace(trace, request, stage, elapsedMs(start), summarize(inputSummary), "empty", e.getMessage());
+            String reason = stageFailureReason(stage, "exception");
+            addTrace(trace, request, stage, elapsedMs(start), summarize(inputSummary), "empty", safeFailureReason(e));
             logger.warn("Agentic RAG stage {} failed", stage, e);
-            return Optional.empty();
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            return new JsonStageResult<>(Optional.empty(), reason);
         }
+    }
+
+    private String stageFailureReason(String stage, String suffix) {
+        if ("PLAN_QUERY".equals(stage)) {
+            return "planner_" + suffix;
+        }
+        if ("EVALUATE_EVIDENCE".equals(stage)) {
+            return "evaluator_" + suffix;
+        }
+        return stage.toLowerCase(Locale.ROOT) + "_" + suffix;
     }
 
     private String buildPlannerSystemPrompt() {
         return """
                 You are the query planner for PaiSmart Agentic RAG.
                 Return only a JSON object matching this schema:
-                {"intent":"string","subQueries":["string"],"answerStrategy":"string","needsClarification":false,"decisionReason":"string"}
+                {"intent":"string","subQueries":["string"],"entities":{"components":["string"],"versions":["string"],"cves":["string"],"projects":["string"]},"answerStrategy":"string","needsClarification":false,"decisionReason":"string"}
                 Split complex questions into at most four focused retrieval queries.
+                Extract SCA entities when present, including component names, versions, CVE ids, and project names.
                 decisionReason must be concise and auditable. Do not reveal hidden chain-of-thought.
                 Do not answer the user.
                 """;
@@ -321,6 +443,24 @@ public class AgenticRagService {
             normalized.add(fallback.trim());
         }
         return new ArrayList<>(normalized);
+    }
+
+    private List<String> filterNewQueries(List<String> candidates, Set<String> searchedQueryKeys) {
+        List<String> newQueries = new ArrayList<>();
+        for (String query : candidates) {
+            String key = normalizeQueryKey(query);
+            if (!key.isBlank() && searchedQueryKeys.add(key)) {
+                newQueries.add(query);
+            }
+        }
+        return newQueries;
+    }
+
+    private String normalizeQueryKey(String query) {
+        if (query == null) {
+            return "";
+        }
+        return query.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
     }
 
     private String chunkKey(SearchResult result) {
@@ -407,6 +547,65 @@ public class AgenticRagService {
         );
     }
 
+    private void auditGraphSearch(AgenticRagRequest request, AgentPlan plan, List<GraphSearchResult> results) {
+        if (!aiProperties.getAgentic().isLogLlmDecisions()) {
+            return;
+        }
+        List<Map<String, Object>> paths = results.stream()
+                .limit(10)
+                .map(result -> {
+                    Map<String, Object> path = new LinkedHashMap<>();
+                    path.put("path", result.getPathText());
+                    path.put("fileMd5", result.getFileMd5());
+                    path.put("chunkId", result.getChunkId());
+                    path.put("score", result.getScore());
+                    path.put("ingestionTraceId", result.getIngestionTraceId());
+                    return path;
+                })
+                .toList();
+        logger.info(
+                "agentic_rag_graph_search traceId={} chatTraceId={} sessionId={} userId={} entities={} resultCount={} pathsJson={}",
+                traceId(request),
+                traceId(request),
+                request.getSessionId(),
+                request.getUserId(),
+                preview(String.valueOf(plan.getEntities()), aiProperties.getAgentic().getLogPromptPreviewChars()),
+                results.size(),
+                preview(toJson(paths), aiProperties.getAgentic().getLogOutputPreviewChars())
+        );
+    }
+
+    private void auditRewriteSkipped(AgenticRagRequest request, List<String> skippedQueries) {
+        if (!aiProperties.getAgentic().isLogLlmDecisions()) {
+            return;
+        }
+        logger.info(
+                "agentic_rag_rewrite_skipped traceId={} chatTraceId={} sessionId={} userId={} reason=duplicate_rewrite_queries skippedQueries={}",
+                traceId(request),
+                traceId(request),
+                request.getSessionId(),
+                request.getUserId(),
+                preview(skippedQueries.toString(), aiProperties.getAgentic().getLogOutputPreviewChars())
+        );
+    }
+
+    private void auditFallback(AgenticRagRequest request, String stage, String reason, String action, int evidenceCount) {
+        if (!aiProperties.getAgentic().isLogLlmDecisions()) {
+            return;
+        }
+        logger.info(
+                "agentic_rag_fallback traceId={} chatTraceId={} sessionId={} userId={} stage={} reason={} action={} evidenceCount={}",
+                traceId(request),
+                traceId(request),
+                request.getSessionId(),
+                request.getUserId(),
+                stage,
+                preview(reason, aiProperties.getAgentic().getLogOutputPreviewChars()),
+                action,
+                evidenceCount
+        );
+    }
+
     private void auditFinalContext(AgenticRagRequest request, ContextBuildResult context) {
         if (!aiProperties.getAgentic().isLogLlmDecisions()) {
             return;
@@ -458,7 +657,7 @@ public class AgenticRagService {
     }
 
     private String summarizePlan(AgentPlan plan) {
-        return "intent=" + plan.getIntent() + ", subQueries=" + plan.getSubQueries();
+        return "intent=" + plan.getIntent() + ", subQueries=" + plan.getSubQueries() + ", entities=" + plan.getEntities();
     }
 
     private String summarizeAssessment(EvidenceAssessment assessment) {
@@ -475,9 +674,30 @@ public class AgenticRagService {
         return normalized.length() <= 120 ? normalized : normalized.substring(0, 120);
     }
 
+    private int evidenceCount(List<SearchResult> evidence) {
+        return evidence != null ? evidence.size() : 0;
+    }
+
+    private String safeFailureReason(Exception e) {
+        if (e == null) {
+            return "";
+        }
+        String message = e.getMessage();
+        return message != null && !message.isBlank() ? message : e.getClass().getSimpleName();
+    }
+
     @FunctionalInterface
     private interface JsonCall<T> {
         Optional<T> execute();
+    }
+
+    private record JsonStageResult<T>(Optional<T> value, String failureReason) {
+    }
+
+    private record SearchExecution(int queryCount, int failureCount, int resultCount) {
+        private boolean allQueriesFailed() {
+            return queryCount > 0 && failureCount == queryCount;
+        }
     }
 
     private record ContextBuildResult(String context,

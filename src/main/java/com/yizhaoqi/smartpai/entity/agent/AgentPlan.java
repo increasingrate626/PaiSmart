@@ -9,6 +9,7 @@ import java.util.List;
 public class AgentPlan {
     private String intent;
     private List<String> subQueries = new ArrayList<>();
+    private AgentEntities entities = new AgentEntities();
     private String answerStrategy;
     private boolean needsClarification;
     private String decisionReason;

@@ -1,6 +1,7 @@
 package com.yizhaoqi.smartpai.service;
 
 import com.yizhaoqi.smartpai.client.EmbeddingClient;
+import com.yizhaoqi.smartpai.config.AiProperties;
 import com.yizhaoqi.smartpai.model.DocumentVector;
 import com.yizhaoqi.smartpai.entity.EsDocument;
 import com.yizhaoqi.smartpai.entity.TextChunk;
@@ -28,6 +29,12 @@ public class VectorizationService {
 
     @Autowired
     private DocumentVectorRepository documentVectorRepository;
+
+    @Autowired(required = false)
+    private GraphExtractionService graphExtractionService;
+
+    @Autowired
+    private AiProperties aiProperties;
 
     /**
      * 执行向量化操作
@@ -78,10 +85,31 @@ public class VectorizationService {
 
             elasticsearchService.bulkIndex(esDocuments); // 批量存储到 Elasticsearch
 
+            extractGraphIfEnabled(fileMd5, chunks, userId, orgTag, isPublic, ingestionTraceId);
+
             logger.info("向量化完成，fileMd5: {}", fileMd5);
         } catch (Exception e) {
             logger.error("向量化失败，fileMd5: {}", fileMd5, e);
             throw new RuntimeException("向量化失败", e);
+        }
+    }
+
+    private void extractGraphIfEnabled(String fileMd5,
+                                       List<TextChunk> chunks,
+                                       String userId,
+                                       String orgTag,
+                                       boolean isPublic,
+                                       String ingestionTraceId) {
+        if (graphExtractionService == null
+                || aiProperties.getAgentic().getGraph() == null
+                || !aiProperties.getAgentic().getGraph().isExtractionEnabled()) {
+            return;
+        }
+        try {
+            graphExtractionService.extract(fileMd5, chunks, userId, orgTag, isPublic, ingestionTraceId);
+        } catch (Exception e) {
+            logger.warn("graph_extraction_failed ingestionTraceId={} fileMd5={} reason={}",
+                    ingestionTraceId, fileMd5, e.getMessage(), e);
         }
     }
     
