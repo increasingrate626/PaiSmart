@@ -15,11 +15,12 @@ The most important system boundary is the RAG pipeline:
 1. Upload and deduplicate files.
 2. Parse files into chunks.
 3. Vectorize chunks through DashScope.
-4. Store metadata in MySQL and searchable vectors/text in Elasticsearch.
-5. Search with permission filtering.
-6. Run a bounded Agentic RAG orchestration layer.
-7. Stream a cited answer through the chat WebSocket.
-8. Persist recent conversation state in Redis.
+4. Optionally extract SCA graph nodes/edges such as components, versions, CVEs, projects, and dependency/remediation relationships.
+5. Store metadata in MySQL and searchable vectors/text in Elasticsearch.
+6. Search with permission filtering.
+7. Run a bounded Agentic RAG orchestration layer with optional graph evidence.
+8. Stream a cited answer through the chat WebSocket.
+9. Persist recent conversation state in Redis.
 
 For SCA remediation Q&A, the target Agentic RAG flow should answer questions such as:
 
@@ -114,6 +115,8 @@ utils/        JWT, logging, password, and MinIO migration helpers
 | `ParseService` | Parses files with Apache Tika, chunks text, persists `ChunkInfo` rows |
 | `UploadService` | Handles chunked upload, MD5 deduplication, MinIO storage, Kafka task publishing |
 | `ElasticsearchService` | Low-level Elasticsearch index and document operations |
+| `GraphExtractionService` | Extracts SCA graph candidates from chunks with rule patterns plus optional DeepSeek JSON extraction |
+| `GraphSearchService` | Finds permission-filtered graph paths for Agentic RAG entity evidence |
 | `OrgTagCacheService` | Resolves and caches user organization-tag visibility in Redis |
 | `TokenCacheService` | Handles JWT blacklist and refresh-token cache behavior |
 
@@ -125,7 +128,8 @@ utils/        JWT, logging, password, and MinIO migration helpers
 4. `FileProcessingConsumer` downloads the file from MinIO or URL.
 5. The consumer calls `ParseService.parseAndSave()` to extract text and save chunk metadata.
 6. The consumer calls `VectorizationService.vectorize()` to embed chunks and index them into Elasticsearch.
-7. Failed processing tasks should flow to DLT topic `file-processing-dlt` after retries.
+7. If enabled, vectorization invokes `GraphExtractionService` to refresh `graph_node` and `graph_edge` rows for the file.
+8. Failed processing tasks should flow to DLT topic `file-processing-dlt` after retries.
 
 When changing upload, parse, or vectorization code, verify the whole chain instead of only one service. A local unit test can prove a parser branch, but the real behavior also depends on Kafka, MinIO, MySQL, and Elasticsearch mappings.
 
@@ -143,12 +147,13 @@ WebSocket entrypoint: `/chat/{jwtToken}`. In frontend development this is proxie
 8. `AgenticRagService` executes a fixed, bounded state machine: `PLAN_QUERY -> SEARCH -> EVALUATE_EVIDENCE -> OPTIONAL_REWRITE_AND_RESEARCH -> FINAL_CONTEXT`.
 9. Planner/evaluator steps use `DeepSeekClient.completeJson(...)`. JSON failures, timeouts, or planner failures must degrade to ordinary RAG instead of breaking chat.
 10. All retrieval must continue to call `HybridSearchService.searchWithPermission()`. Never bypass the owner/public/org-tag permission filter.
-11. `AgenticRagService` merges, deduplicates, ranks, and truncates evidence within the configured context budget.
-12. It builds cited context in the form `[N] (filename | MD5:hash) snippet...` and returns `referenceMapping`.
-13. `ChatHandler` saves `sessionId -> referenceNumber -> fileMd5`.
-14. It streams DeepSeek output as `{"chunk":"..."}` messages.
-15. It sends a completion message such as `{"type":"completion","status":"finished",...}`.
-16. It updates Redis conversation history with a 7-day TTL.
+11. When graph search is enabled and the plan contains entities, `AgenticRagService` calls `GraphSearchService.searchWithPermission()` and adds graph-path evidence without replacing text evidence.
+12. `AgenticRagService` merges, deduplicates, ranks, and truncates evidence within the configured context budget.
+13. It builds cited context in the form `[N] (filename | MD5:hash) snippet...` and returns `referenceMapping`.
+14. `ChatHandler` saves `sessionId -> referenceNumber -> fileMd5`.
+15. It streams DeepSeek output as `{"chunk":"..."}` messages.
+16. It sends a completion message such as `{"type":"completion","status":"finished",...}`.
+17. It updates Redis conversation history with a 7-day TTL.
 
 Citation click-through depends on `/api/v1/documents/reference-md5?sessionId=...&referenceNumber=N`. A response can look correct while references fail if the session ID or reference numbering contract changes.
 
@@ -173,6 +178,8 @@ Important indexed fields include:
 - `public`
 - `fileMd5`
 - `chunkId`
+
+Graph evidence is stored in MySQL tables `graph_node` and `graph_edge`. Graph rows carry `userId`, `orgTag`, `isPublic`, `fileMd5`, `chunkId`, and `ingestionTraceId`; graph search must preserve the same owner/public/org-tag permission model as document search.
 
 The permission model is central. A user can access a document when at least one condition is true:
 
@@ -210,6 +217,7 @@ Important defaults:
 - System prompt requires Simplified Chinese, conclusion-first answers, and citations like `(source#N: filename)` / `(来源#N: filename)`
 - Agentic RAG can be toggled with `ai.agentic.enabled` / `PAISMART_AGENTIC_RAG_ENABLED`
 - Agentic RAG default limits: max search rounds `2`, first round topK `12`, rewrite round topK `8`, max subqueries `4`, max context chars `1600`
+- Agentic graph defaults: enabled `true`, extraction enabled `true`, max depth `2`, topK `8`
 
 Do not commit real API keys. Local machine secrets should stay in ignored files such as `src/main/resources/application-local.yml`, or in environment variables. `application-local.yml` is intentionally ignored by `.gitignore`.
 
@@ -284,6 +292,7 @@ Existing correlation anchors:
 - User operations commonly include `userId` or username.
 - Agentic RAG internally returns `AgentTraceStep` objects with stage, duration, input summary, output summary, and failure reason.
 - Agentic RAG emits `agentic_rag_trace` INFO logs with `traceId`, `sessionId`, `userId`, `stage`, `durationMs`, `inputSummary`, `outputSummary`, and `failureReason`.
+- Graph extraction emits `graph_extraction_audit` / `graph_extraction_failed`; graph retrieval emits `GRAPH_SEARCH` trace steps and optional `agentic_rag_graph_search` INFO logs when LLM-decision logging is enabled.
 
 Main log files:
 
@@ -340,6 +349,8 @@ Backend tests live under `src/test/java/com/yizhaoqi/smartpai/`.
 Known tests include:
 
 - `AgenticRagServiceTest`
+- `GraphExtractionServiceTest`
+- `GraphSearchServiceTest`
 - `UserServiceTest`
 - `ConversationServiceTest`
 - `ParseServiceTest`
