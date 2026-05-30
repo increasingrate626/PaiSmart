@@ -360,6 +360,72 @@ class AgenticRagServiceTest {
     }
 
     @Test
+    void evaluatorPromptSeparatesGraphFactsFromDocExcerpts() {
+        AgentPlan plan = new AgentPlan();
+        plan.setSubQueries(List.of("log4j cve"));
+        AgentEntities entities = new AgentEntities();
+        entities.setCves(List.of("CVE-2021-44228"));
+        plan.setEntities(entities);
+
+        EvidenceAssessment assessment = new EvidenceAssessment();
+        assessment.setSufficient(true);
+
+        SearchResult docResult = result("file-doc", 1, "DOC_ONLY log4j advisory excerpt", 0.7, "doc.txt");
+        GraphSearchResult graphResult = graphResult("file-graph", 2, "[GRAPH_ONLY] log4j-core --AFFECTED_BY--> CVE-2021-44228");
+
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
+        when(searchService.searchWithPermission("log4j cve", "alice", 12)).thenReturn(List.of(docResult));
+        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(8))).thenReturn(List.of(graphResult));
+
+        service.run(new AgenticRagRequest("alice", "log4j cve", List.of(), "session-1", "trace-123"));
+
+        ArgumentCaptor<String> systemPromptCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> userPromptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(deepSeekClient).completeJson(systemPromptCaptor.capture(), userPromptCaptor.capture(), eq(EvidenceAssessment.class));
+
+        String systemPrompt = systemPromptCaptor.getValue();
+        String userPrompt = userPromptCaptor.getValue();
+        assertTrue(systemPrompt.contains("GRAPH facts"));
+        assertTrue(systemPrompt.contains("DOC excerpts"));
+        assertTrue(systemPrompt.contains("conflict"));
+
+        int graphSection = userPrompt.indexOf("GRAPH facts:");
+        int docSection = userPrompt.indexOf("DOC excerpts:");
+        int graphEvidence = userPrompt.indexOf("[GRAPH#1] [GRAPH_ONLY]");
+        int docEvidence = userPrompt.indexOf("DOC_ONLY log4j advisory excerpt");
+
+        assertTrue(graphSection >= 0);
+        assertTrue(docSection > graphSection);
+        assertTrue(graphEvidence > graphSection && graphEvidence < docSection);
+        assertTrue(docEvidence > docSection);
+    }
+
+    @Test
+    void evaluatorPromptKeepsEmptyGraphSectionWhenOnlyDocEvidenceExists() {
+        AgentPlan plan = new AgentPlan();
+        plan.setSubQueries(List.of("ordinary question"));
+
+        EvidenceAssessment assessment = new EvidenceAssessment();
+        assessment.setSufficient(true);
+
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
+        when(searchService.searchWithPermission("ordinary question", "alice", 12))
+                .thenReturn(List.of(result("file-a", 1, "DOC_ONLY ordinary evidence", 0.8, "a.txt")));
+
+        service.run(request("alice", "ordinary question"));
+
+        ArgumentCaptor<String> userPromptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(deepSeekClient).completeJson(anyString(), userPromptCaptor.capture(), eq(EvidenceAssessment.class));
+
+        String userPrompt = userPromptCaptor.getValue();
+        assertTrue(userPrompt.contains("GRAPH facts:\n- none"));
+        assertTrue(userPrompt.contains("DOC excerpts:"));
+        assertTrue(userPrompt.indexOf("DOC_ONLY ordinary evidence") > userPrompt.indexOf("DOC excerpts:"));
+    }
+
+    @Test
     void writesAgentTraceStepsWithTraceIdToLogs() {
         Logger agentLogger = (Logger) LoggerFactory.getLogger(AgenticRagService.class);
         ListAppender<ILoggingEvent> appender = new ListAppender<>();

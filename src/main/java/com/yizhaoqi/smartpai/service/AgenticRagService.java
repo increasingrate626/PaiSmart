@@ -436,6 +436,10 @@ public class AgenticRagService {
                 Return only a JSON object matching this schema:
                 {"sufficient":true,"missingAspects":[],"selectedChunkIds":["fileMd5:chunkId"],"rewriteQueries":[],"decisionReason":"string"}
                 Mark sufficient=false when the evidence cannot answer the question.
+                Use GRAPH facts for component, CVE, version, dependency, and fix-version relationships.
+                Use DOC excerpts for original source support, surrounding context, constraints, and explanations.
+                If GRAPH facts and DOC excerpts conflict, or either layer is insufficient for the requested answer, set sufficient=false or provide rewrite queries instead of forcing a conclusion.
+                selectedChunkIds may include both GRAPH facts and DOC excerpts, always using fileMd5:chunkId.
                 Rewrite queries must be retrieval queries only.
                 decisionReason must be concise and auditable. Do not reveal hidden chain-of-thought.
                 """;
@@ -445,7 +449,24 @@ public class AgenticRagService {
         StringBuilder builder = new StringBuilder();
         builder.append("Question:\n").append(request.getMessage()).append("\n\n");
         builder.append("Intent:\n").append(plan.getIntent()).append("\n\n");
-        builder.append("Evidence:\n");
+        List<SearchResult> graphEvidence = evidence.stream()
+                .filter(this::isGraphEvidence)
+                .toList();
+        List<SearchResult> docEvidence = evidence.stream()
+                .filter(result -> !isGraphEvidence(result))
+                .toList();
+        appendEvidenceSection(builder, "GRAPH facts", graphEvidence);
+        builder.append("\n");
+        appendEvidenceSection(builder, "DOC excerpts", docEvidence);
+        return builder.toString();
+    }
+
+    private void appendEvidenceSection(StringBuilder builder, String title, List<SearchResult> evidence) {
+        builder.append(title).append(":\n");
+        if (evidence.isEmpty()) {
+            builder.append("- none\n");
+            return;
+        }
         for (SearchResult result : evidence) {
             builder.append("- id=").append(chunkKey(result))
                     .append(", score=").append(result.getScore())
@@ -453,7 +474,12 @@ public class AgenticRagService {
                     .append(", text=").append(summarize(result.getTextContent()))
                     .append("\n");
         }
-        return builder.toString();
+    }
+
+    private boolean isGraphEvidence(SearchResult result) {
+        return result != null
+                && result.getTextContent() != null
+                && result.getTextContent().trim().startsWith("[GRAPH#");
     }
 
     private List<String> normalizeQueries(List<String> queries, String fallback, int maxQueries) {
