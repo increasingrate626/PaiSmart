@@ -108,15 +108,17 @@ utils/        JWT, logging, password, and MinIO migration helpers
 | Service | Responsibility |
 |---|---|
 | `ChatHandler` | Orchestrates chat RAG: conversation history, Agentic RAG, DeepSeek streaming, Redis history, reference mapping |
-| `AgenticRagService` | Bounded Agentic RAG state machine: planning, permissioned search, evidence evaluation, optional rewrite/research, context budgeting |
+| `AgenticRagService` | Bounded Agentic RAG state machine: rule entity merge, planning, permissioned search, evidence evaluation, optional rewrite/research, context budgeting |
 | `HybridSearchService` | Combines vector recall, keyword matching, BM25 rescore, and permission filters |
 | `DeepSeekClient` | Streams final answers and provides non-streaming JSON completion for planner/evaluator steps |
 | `VectorizationService` | Chunks text, calls `EmbeddingClient`, writes vectors into Elasticsearch |
 | `ParseService` | Parses files with Apache Tika, chunks text, persists `ChunkInfo` rows |
 | `UploadService` | Handles chunked upload, MD5 deduplication, MinIO storage, Kafka task publishing |
 | `ElasticsearchService` | Low-level Elasticsearch index and document operations |
+| `ScaEntityExtractionService` | Extracts deterministic SCA entities from user questions before planner execution |
 | `GraphExtractionService` | Extracts SCA graph candidates from chunks with rule patterns plus optional DeepSeek JSON extraction |
 | `GraphSearchService` | Finds permission-filtered graph paths for Agentic RAG entity evidence |
+| `RagEvalService` | Runs enabled database-backed RAG eval cases through `AgenticRagService` and persists run/case results |
 | `OrgTagCacheService` | Resolves and caches user organization-tag visibility in Redis |
 | `TokenCacheService` | Handles JWT blacklist and refresh-token cache behavior |
 
@@ -144,10 +146,10 @@ WebSocket entrypoint: `/chat/{jwtToken}`. In frontend development this is proxie
 5. `ChatHandler.processMessage()` retrieves or creates the Redis current conversation key: `user:{username}:current_conversation`.
 6. It loads recent history from `conversation:{conversationId}`.
 7. It calls `AgenticRagService.run()` with `userId`, message, history, and `sessionId`.
-8. `AgenticRagService` executes a fixed, bounded state machine: `PLAN_QUERY -> SEARCH -> EVALUATE_EVIDENCE -> OPTIONAL_REWRITE_AND_RESEARCH -> FINAL_CONTEXT`.
-9. Planner/evaluator steps use `DeepSeekClient.completeJson(...)`. JSON failures, timeouts, or planner failures must degrade to ordinary RAG instead of breaking chat.
+8. `AgenticRagService` first extracts deterministic SCA entities from the user question, then executes a fixed, bounded state machine: `PLAN_QUERY -> SEARCH -> EVALUATE_EVIDENCE -> OPTIONAL_REWRITE_AND_RESEARCH -> FINAL_CONTEXT`.
+9. Planner/evaluator steps use `DeepSeekClient.completeJson(...)`. Planner entities are merged with rule entities, with rule entities kept first. JSON failures, timeouts, or planner failures must degrade to ordinary RAG instead of breaking chat.
 10. All retrieval must continue to call `HybridSearchService.searchWithPermission()`. Never bypass the owner/public/org-tag permission filter.
-11. When graph search is enabled and the plan contains entities, `AgenticRagService` calls `GraphSearchService.searchWithPermission()` and adds graph-path evidence without replacing text evidence.
+11. When graph search is enabled and merged entities are non-empty, `AgenticRagService` calls `GraphSearchService.searchWithPermission()` and adds graph-path evidence without replacing text evidence. Planner fallback may still add graph evidence when rule entities were extracted.
 12. `AgenticRagService` merges, deduplicates, ranks, and truncates evidence within the configured context budget.
 13. It builds cited context in the form `[N] (filename | MD5:hash) snippet...` and returns `referenceMapping`.
 14. `ChatHandler` saves `sessionId -> referenceNumber -> fileMd5`.
@@ -349,6 +351,8 @@ Backend tests live under `src/test/java/com/yizhaoqi/smartpai/`.
 Known tests include:
 
 - `AgenticRagServiceTest`
+- `ScaEntityExtractionServiceTest`
+- `RagEvalServiceTest`
 - `GraphExtractionServiceTest`
 - `GraphSearchServiceTest`
 - `UserServiceTest`
@@ -363,6 +367,7 @@ Run targeted backend tests with:
 ```bash
 mvn test -Dtest=ParseServiceUnitTest
 mvn test -Dtest=AgenticRagServiceTest
+mvn test -Dtest=ScaEntityExtractionServiceTest,AgenticRagServiceTest,RagEvalServiceTest,GraphSearchServiceTest
 ```
 
 Run all backend tests with local Docker settings:

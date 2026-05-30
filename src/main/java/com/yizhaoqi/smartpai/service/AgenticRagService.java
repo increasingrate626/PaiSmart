@@ -3,6 +3,7 @@ package com.yizhaoqi.smartpai.service;
 import com.yizhaoqi.smartpai.client.DeepSeekClient;
 import com.yizhaoqi.smartpai.config.AiProperties;
 import com.yizhaoqi.smartpai.entity.SearchResult;
+import com.yizhaoqi.smartpai.entity.agent.AgentEntities;
 import com.yizhaoqi.smartpai.entity.agent.AgentPlan;
 import com.yizhaoqi.smartpai.entity.agent.AgentTraceStep;
 import com.yizhaoqi.smartpai.entity.agent.AgenticRagRequest;
@@ -43,23 +44,33 @@ public class AgenticRagService {
     private final GraphSearchService graphSearchService;
     private final DeepSeekClient deepSeekClient;
     private final AiProperties aiProperties;
+    private final ScaEntityExtractionService scaEntityExtractionService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public AgenticRagService(HybridSearchService searchService,
                              DeepSeekClient deepSeekClient,
                              AiProperties aiProperties) {
-        this(searchService, null, deepSeekClient, aiProperties);
+        this(searchService, null, deepSeekClient, aiProperties, null);
+    }
+
+    public AgenticRagService(HybridSearchService searchService,
+                             GraphSearchService graphSearchService,
+                             DeepSeekClient deepSeekClient,
+                             AiProperties aiProperties) {
+        this(searchService, graphSearchService, deepSeekClient, aiProperties, null);
     }
 
     @Autowired
     public AgenticRagService(HybridSearchService searchService,
                              GraphSearchService graphSearchService,
                              DeepSeekClient deepSeekClient,
-                             AiProperties aiProperties) {
+                             AiProperties aiProperties,
+                             ScaEntityExtractionService scaEntityExtractionService) {
         this.searchService = searchService;
         this.graphSearchService = graphSearchService;
         this.deepSeekClient = deepSeekClient;
         this.aiProperties = aiProperties;
+        this.scaEntityExtractionService = scaEntityExtractionService;
     }
 
     public AgenticRagResult run(AgenticRagRequest request) {
@@ -70,7 +81,9 @@ public class AgenticRagService {
             return fallbackSearch(request, trace, "agentic disabled");
         }
 
+        AgentEntities ruleEntities = new AgentEntities();
         try {
+            ruleEntities = extractRuleEntities(request);
             JsonStageResult<AgentPlan> planResult = callWithTimeout(
                     () -> deepSeekClient.completeJson(buildPlannerSystemPrompt(), buildPlannerUserPrompt(request), AgentPlan.class),
                     cfg.getPlannerTimeoutMs(),
@@ -82,10 +95,13 @@ public class AgenticRagService {
 
             if (planResult.value().isEmpty()) {
                 auditFallback(request, "PLAN_QUERY", planResult.failureReason(), "fallback_search", evidenceCount(List.of()));
-                return fallbackSearch(request, trace, planResult.failureReason());
+                return fallbackSearch(request, trace, planResult.failureReason(), ruleEntities);
             }
 
             AgentPlan plan = planResult.value().get();
+            AgentEntities mergedEntities = mergeEntities(ruleEntities, plan.getEntities());
+            plan.setEntities(mergedEntities);
+            auditRuleEntities(request, ruleEntities, mergedEntities);
             addTrace(trace, request, "PLAN_QUERY", 0, summarize(request.getMessage()), summarizePlan(plan), null);
             auditLlmDecision(request, "PLAN_QUERY", buildPlannerUserPrompt(request), plan);
 
@@ -130,7 +146,7 @@ public class AgenticRagService {
             return buildResult(request, evidence, assessment, trace, cfg.getMaxContextChars());
         } catch (Exception e) {
             logger.error("Agentic RAG failed, falling back to normal RAG", e);
-            return fallbackSearch(request, trace, e.getMessage());
+            return fallbackSearch(request, trace, e.getMessage(), ruleEntities);
         }
     }
 
@@ -243,6 +259,13 @@ public class AgenticRagService {
     }
 
     private AgenticRagResult fallbackSearch(AgenticRagRequest request, List<AgentTraceStep> trace, String reason) {
+        return fallbackSearch(request, trace, reason, null);
+    }
+
+    private AgenticRagResult fallbackSearch(AgenticRagRequest request,
+                                            List<AgentTraceStep> trace,
+                                            String reason,
+                                            AgentEntities ruleEntities) {
         long start = System.nanoTime();
         try {
             List<SearchResult> results = searchService.searchWithPermission(
@@ -252,7 +275,13 @@ public class AgenticRagService {
             );
             addTrace(trace, request, "FALLBACK_SEARCH", elapsedMs(start), summarize(request.getMessage()), "results=" + results.size(), reason);
             auditSearch(request, "FALLBACK_SEARCH", request.getMessage(), results);
-            return buildResult(request, results, null, trace, aiProperties.getAgentic().getMaxContextChars());
+            List<SearchResult> evidence = new ArrayList<>(results);
+            if (ruleEntities != null && ruleEntities.hasAny()) {
+                AgentPlan fallbackPlan = new AgentPlan();
+                fallbackPlan.setEntities(ruleEntities);
+                searchGraphIfNeeded(request, fallbackPlan, evidence, trace, aiProperties.getAgentic());
+            }
+            return buildResult(request, evidence, null, trace, aiProperties.getAgentic().getMaxContextChars());
         } catch (Exception e) {
             addTrace(trace, request, "FALLBACK_SEARCH", elapsedMs(start), summarize(request.getMessage()), "results=0", e.getMessage());
             logger.error("Agentic RAG fallback search failed", e);
@@ -456,6 +485,61 @@ public class AgenticRagService {
         return newQueries;
     }
 
+    private AgentEntities extractRuleEntities(AgenticRagRequest request) {
+        if (scaEntityExtractionService == null) {
+            return new AgentEntities();
+        }
+        try {
+            AgentEntities entities = scaEntityExtractionService.extract(request.getMessage());
+            return entities != null ? entities : new AgentEntities();
+        } catch (Exception e) {
+            logger.warn("SCA rule entity extraction failed", e);
+            return new AgentEntities();
+        }
+    }
+
+    private AgentEntities mergeEntities(AgentEntities ruleEntities, AgentEntities plannerEntities) {
+        AgentEntities merged = new AgentEntities();
+        merged.setComponents(mergeEntityList(values(ruleEntities, EntityKind.COMPONENT), values(plannerEntities, EntityKind.COMPONENT)));
+        merged.setVersions(mergeEntityList(values(ruleEntities, EntityKind.VERSION), values(plannerEntities, EntityKind.VERSION)));
+        merged.setCves(mergeEntityList(values(ruleEntities, EntityKind.CVE), values(plannerEntities, EntityKind.CVE)));
+        merged.setProjects(mergeEntityList(values(ruleEntities, EntityKind.PROJECT), values(plannerEntities, EntityKind.PROJECT)));
+        return merged;
+    }
+
+    private List<String> values(AgentEntities entities, EntityKind kind) {
+        if (entities == null) {
+            return List.of();
+        }
+        return switch (kind) {
+            case COMPONENT -> entities.getComponents();
+            case VERSION -> entities.getVersions();
+            case CVE -> entities.getCves();
+            case PROJECT -> entities.getProjects();
+        };
+    }
+
+    private List<String> mergeEntityList(List<String> ruleValues, List<String> plannerValues) {
+        LinkedHashMap<String, String> merged = new LinkedHashMap<>();
+        addEntityValues(merged, ruleValues);
+        addEntityValues(merged, plannerValues);
+        return new ArrayList<>(merged.values());
+    }
+
+    private void addEntityValues(Map<String, String> merged, List<String> values) {
+        if (values == null) {
+            return;
+        }
+        for (String value : values) {
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            String normalized = value.trim().replaceAll("\\s+", " ");
+            String key = normalized.toLowerCase(Locale.ROOT);
+            merged.putIfAbsent(key, normalized);
+        }
+    }
+
     private String normalizeQueryKey(String query) {
         if (query == null) {
             return "";
@@ -589,6 +673,21 @@ public class AgenticRagService {
         );
     }
 
+    private void auditRuleEntities(AgenticRagRequest request, AgentEntities ruleEntities, AgentEntities mergedEntities) {
+        if (!aiProperties.getAgentic().isLogLlmDecisions()) {
+            return;
+        }
+        logger.info(
+                "agentic_rag_rule_entities traceId={} chatTraceId={} sessionId={} userId={} ruleEntities={} mergedEntities={}",
+                traceId(request),
+                traceId(request),
+                request.getSessionId(),
+                request.getUserId(),
+                preview(String.valueOf(ruleEntities), aiProperties.getAgentic().getLogOutputPreviewChars()),
+                preview(String.valueOf(mergedEntities), aiProperties.getAgentic().getLogOutputPreviewChars())
+        );
+    }
+
     private void auditFallback(AgenticRagRequest request, String stage, String reason, String action, int evidenceCount) {
         if (!aiProperties.getAgentic().isLogLlmDecisions()) {
             return;
@@ -703,5 +802,12 @@ public class AgenticRagService {
     private record ContextBuildResult(String context,
                                       List<SearchResult> includedEvidence,
                                       Map<Integer, String> referenceMapping) {
+    }
+
+    private enum EntityKind {
+        COMPONENT,
+        VERSION,
+        CVE,
+        PROJECT
     }
 }

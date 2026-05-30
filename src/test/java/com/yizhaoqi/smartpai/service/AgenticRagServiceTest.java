@@ -8,6 +8,7 @@ import com.yizhaoqi.smartpai.entity.agent.AgentPlan;
 import com.yizhaoqi.smartpai.entity.agent.AgenticRagRequest;
 import com.yizhaoqi.smartpai.entity.agent.AgenticRagResult;
 import com.yizhaoqi.smartpai.entity.agent.EvidenceAssessment;
+import com.yizhaoqi.smartpai.entity.graph.GraphSearchRequest;
 import com.yizhaoqi.smartpai.entity.graph.GraphSearchResult;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -17,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
@@ -45,6 +47,9 @@ class AgenticRagServiceTest {
     @Mock
     private GraphSearchService graphSearchService;
 
+    @Mock
+    private ScaEntityExtractionService scaEntityExtractionService;
+
     private AiProperties aiProperties;
     private AgenticRagService service;
 
@@ -59,7 +64,8 @@ class AgenticRagServiceTest {
         aiProperties.getAgentic().setFirstRoundTopK(12);
         aiProperties.getAgentic().setRewriteRoundTopK(8);
         aiProperties.getAgentic().setMaxContextChars(220);
-        service = new AgenticRagService(searchService, graphSearchService, deepSeekClient, aiProperties);
+        when(scaEntityExtractionService.extract(anyString())).thenReturn(new AgentEntities());
+        service = new AgenticRagService(searchService, graphSearchService, deepSeekClient, aiProperties, scaEntityExtractionService);
     }
 
     @Test
@@ -512,8 +518,116 @@ class AgenticRagServiceTest {
         verify(deepSeekClient, times(2)).completeJson(anyString(), anyString(), eq(EvidenceAssessment.class));
     }
 
+    @Test
+    void ruleEntitiesTriggerGraphSearchWhenPlannerMissesEntities() {
+        AgentEntities ruleEntities = new AgentEntities();
+        ruleEntities.setComponents(List.of("log4j-core"));
+        ruleEntities.setVersions(List.of("2.14.1"));
+        ruleEntities.setCves(List.of("CVE-2021-44228"));
+        when(scaEntityExtractionService.extract("log4j-core 2.14.1 affected?")).thenReturn(ruleEntities);
+
+        AgentPlan plan = new AgentPlan();
+        plan.setSubQueries(List.of("log4j-core 2.14.1 affected"));
+
+        EvidenceAssessment assessment = new EvidenceAssessment();
+        assessment.setSufficient(true);
+
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
+        when(searchService.searchWithPermission("log4j-core 2.14.1 affected", "alice", 12))
+                .thenReturn(List.of(result("file-a", 1, "text evidence", 0.8, "a.txt")));
+        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(8)))
+                .thenReturn(List.of(graphResult("file-graph", 2, "log4j-core --AFFECTED_BY--> CVE-2021-44228")));
+
+        AgenticRagResult ragResult = service.run(new AgenticRagRequest("alice", "log4j-core 2.14.1 affected?", List.of(), "session-1", "trace-123"));
+
+        assertTrue(ragResult.getFinalContext().contains("[GRAPH#1] log4j-core --AFFECTED_BY--> CVE-2021-44228"));
+        ArgumentCaptor<GraphSearchRequest> captor = ArgumentCaptor.forClass(GraphSearchRequest.class);
+        verify(graphSearchService).searchWithPermission(captor.capture(), eq("alice"), eq(8));
+        assertEquals(List.of("log4j-core"), captor.getValue().getEntities().getComponents());
+        assertEquals(List.of("2.14.1"), captor.getValue().getEntities().getVersions());
+        assertEquals(List.of("CVE-2021-44228"), captor.getValue().getEntities().getCves());
+    }
+
+    @Test
+    void mergesRuleEntitiesBeforePlannerEntities() {
+        AgentEntities ruleEntities = new AgentEntities();
+        ruleEntities.setComponents(List.of("log4j-core"));
+        ruleEntities.setCves(List.of("CVE-2021-44228"));
+        when(scaEntityExtractionService.extract(anyString())).thenReturn(ruleEntities);
+
+        AgentEntities plannerEntities = new AgentEntities();
+        plannerEntities.setComponents(List.of("LOG4J-CORE", "spring-core"));
+        plannerEntities.setVersions(List.of("5.3.0"));
+
+        AgentPlan plan = new AgentPlan();
+        plan.setSubQueries(List.of("component impact"));
+        plan.setEntities(plannerEntities);
+
+        EvidenceAssessment assessment = new EvidenceAssessment();
+        assessment.setSufficient(true);
+
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
+        when(searchService.searchWithPermission("component impact", "alice", 12)).thenReturn(List.of());
+        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(8))).thenReturn(List.of());
+
+        service.run(request("alice", "component impact"));
+
+        ArgumentCaptor<GraphSearchRequest> captor = ArgumentCaptor.forClass(GraphSearchRequest.class);
+        verify(graphSearchService).searchWithPermission(captor.capture(), eq("alice"), eq(8));
+        AgentEntities merged = captor.getValue().getEntities();
+        assertEquals(List.of("log4j-core", "spring-core"), merged.getComponents());
+        assertEquals(List.of("5.3.0"), merged.getVersions());
+        assertEquals(List.of("CVE-2021-44228"), merged.getCves());
+    }
+
+    @Test
+    void plannerFailureUsesRuleEntitiesForFallbackGraphEvidence() {
+        AgentEntities ruleEntities = new AgentEntities();
+        ruleEntities.setCves(List.of("CVE-2021-44228"));
+        when(scaEntityExtractionService.extract(anyString())).thenReturn(ruleEntities);
+
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.empty());
+        when(searchService.searchWithPermission("log4j cve", "alice", 12))
+                .thenReturn(List.of(result("file-a", 1, "fallback text evidence", 0.8, "a.txt")));
+        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(8)))
+                .thenReturn(List.of(graphResult("file-graph", 2, "CVE-2021-44228 --FIXED_IN--> 2.15.0")));
+
+        AgenticRagResult ragResult = service.run(request("alice", "log4j cve"));
+
+        assertTrue(ragResult.getFinalContext().contains("fallback text evidence"));
+        assertTrue(ragResult.getFinalContext().contains("[GRAPH#1] CVE-2021-44228 --FIXED_IN--> 2.15.0"));
+        verify(graphSearchService).searchWithPermission(any(), eq("alice"), eq(8));
+        verify(deepSeekClient, never()).completeJson(anyString(), anyString(), eq(EvidenceAssessment.class));
+    }
+
+    @Test
+    void plannerFailureWithoutRuleEntitiesKeepsCurrentFallbackBehavior() {
+        when(scaEntityExtractionService.extract(anyString())).thenReturn(new AgentEntities());
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.empty());
+        when(searchService.searchWithPermission("ordinary question", "alice", 12))
+                .thenReturn(List.of(result("file-a", 1, "fallback text evidence", 0.8, "a.txt")));
+
+        AgenticRagResult ragResult = service.run(request("alice", "ordinary question"));
+
+        assertTrue(ragResult.getFinalContext().contains("fallback text evidence"));
+        verify(graphSearchService, never()).searchWithPermission(any(), anyString(), anyInt());
+    }
+
     private AgenticRagRequest request(String userId, String message) {
         return new AgenticRagRequest(userId, message, List.of(), "session-1");
+    }
+
+    private GraphSearchResult graphResult(String fileMd5, int chunkId, String path) {
+        GraphSearchResult graphResult = new GraphSearchResult();
+        graphResult.setPathText(path);
+        graphResult.setFileMd5(fileMd5);
+        graphResult.setChunkId(chunkId);
+        graphResult.setScore(0.95d);
+        graphResult.setFileName("graph.txt");
+        graphResult.setIngestionTraceId("trc-ingest-" + fileMd5);
+        return graphResult;
     }
 
     private SearchResult result(String fileMd5, int chunkId, String text, double score, String fileName) {
