@@ -1,7 +1,9 @@
 package com.yizhaoqi.smartpai.service;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.util.ObjectBuilder;
 import com.yizhaoqi.smartpai.client.EmbeddingClient;
 import com.yizhaoqi.smartpai.entity.EsDocument;
 import com.yizhaoqi.smartpai.entity.SearchResult;
@@ -20,6 +22,8 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
 import java.util.Collections;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.Set;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -32,6 +36,8 @@ import java.util.stream.Collectors;
 public class HybridSearchService {
 
     private static final Logger logger = LoggerFactory.getLogger(HybridSearchService.class);
+    private static final int RECALL_MULTIPLIER = 30;
+    private static final int RRF_K = 60;
 
     @Autowired
     private ElasticsearchClient esClient;
@@ -81,81 +87,32 @@ public class HybridSearchService {
                 return textOnlySearchWithPermission(query, userDbId, userEffectiveTags, topK);
             }
 
-            logger.debug("向量生成成功，开始执行混合搜索 KNN");
+            logger.debug("向量生成成功，开始执行 RRF 混合搜索");
 
-            SearchResponse<EsDocument> response = esClient.search(s -> {
-                        s.index("knowledge_base");
-                        // KNN 召回
-                        int recallK = topK * 30; // KNN 召回窗口
-                        s.knn(kn -> kn
-                                .field("vector")
-                                .queryVector(queryVector)
-                                .k(recallK)
-                                .numCandidates(recallK)
-                        );
-                        // 必须命中关键词 + 权限过滤
-                        s.query(q -> q.bool(b -> b
-                                .must(mst -> mst.match(m -> m.field("textContent").query(query)))
-                                .filter(f -> f.bool(bf -> bf
-                                        // 条件1: 用户可访问自己的文档
-                                        .should(s1 -> s1.term(t -> t.field("userId").value(userDbId)))
-                                        // 条件2: 公开文档
-                                        .should(s2 -> s2.term(t -> t.field("public").value(true)))
-                                        // 条件3: 组织标签
-                                        .should(s3 -> {
-                                            if (userEffectiveTags.isEmpty()) {
-                                                return s3.matchNone(mn -> mn);
-                                            } else if (userEffectiveTags.size() == 1) {
-                                                return s3.term(t -> t.field("orgTag").value(userEffectiveTags.get(0)));
-                                            } else {
-                                                return s3.bool(inner -> {
-                                                    userEffectiveTags.forEach(tag -> inner.should(sh2 -> sh2.term(t -> t.field("orgTag").value(tag))));
-                                                    return inner;
-                                                });
-                                            }
-                                        })
-                                ))
-                        ));
+            List<SearchResult> vectorResults = List.of();
+            List<SearchResult> textResults = List.of();
+            boolean vectorFailed = false;
+            boolean textFailed = false;
 
-                        // 第二阶段 BM25 rescore
-                        s.rescore(r -> r
-                                .windowSize(recallK)
-                                .query(rq -> rq
-                                        .queryWeight(0.2d)               // 保留部分 KNN 分
-                                        .rescoreQueryWeight(1.0d)        // BM25 主导
-                                        .query(rqq -> rqq.match(m -> m
-                                                .field("textContent")
-                                                .query(query)
-                                                .operator(Operator.And)
-                                        ))
-                                )
-                        );
-                        s.size(topK);
-                        return s;
-                    }, EsDocument.class);
+            try {
+                vectorResults = executeVectorSearchWithPermission(queryVector, userDbId, userEffectiveTags, topK);
+            } catch (Exception e) {
+                vectorFailed = true;
+                logger.warn("向量召回分支失败，将继续使用文本召回结果", e);
+            }
 
-            logger.debug("Elasticsearch查询执行完成，命中数量: {}, 最大分数: {}", 
-                response.hits().total().value(), response.hits().maxScore());
+            try {
+                textResults = executeTextSearchWithPermission(query, userDbId, userEffectiveTags, topK);
+            } catch (Exception e) {
+                textFailed = true;
+                logger.warn("文本召回分支失败，将继续使用向量召回结果", e);
+            }
 
-            List<SearchResult> results = response.hits().hits().stream()
-                    .map(hit -> {
-                        assert hit.source() != null;
-                        logger.debug("搜索结果 - 文件: {}, 块: {}, 分数: {}, 内容: {}", 
-                            hit.source().getFileMd5(), hit.source().getChunkId(), hit.score(), 
-                            hit.source().getTextContent().substring(0, Math.min(50, hit.source().getTextContent().length())));
-                        return new SearchResult(
-                                hit.source().getFileMd5(),
-                                hit.source().getChunkId(),
-                                hit.source().getTextContent(),
-                                hit.score(),
-                                hit.source().getUserId(),
-                                hit.source().getOrgTag(),
-                                hit.source().isPublic(),
-                                null,
-                                hit.source().getIngestionTraceId()
-                        );
-                    })
-                    .toList();
+            if (vectorFailed && textFailed) {
+                throw new RuntimeException("RRF hybrid search branches failed");
+            }
+
+            List<SearchResult> results = mergeWithRrf(vectorResults, textResults, topK);
 
             logger.debug("返回搜索结果数量: {}", results.size());
             attachFileNames(results);
@@ -170,6 +127,175 @@ public class HybridSearchService {
                 logger.error("后备搜索也失败", fallbackError);
                 return Collections.emptyList();
             }
+        }
+    }
+
+    private List<SearchResult> executeVectorSearchWithPermission(List<Float> queryVector,
+                                                                 String userDbId,
+                                                                 List<String> userEffectiveTags,
+                                                                 int topK) throws Exception {
+        int recallK = topK * RECALL_MULTIPLIER;
+        SearchResponse<EsDocument> response = esClient.search(s -> {
+                    s.index("knowledge_base");
+                    s.knn(kn -> kn
+                            .field("vector")
+                            .queryVector(queryVector)
+                            .k(recallK)
+                            .numCandidates(recallK)
+                    );
+                    s.query(q -> q.bool(b -> b.filter(f -> permissionFilter(f, userDbId, userEffectiveTags))));
+                    s.size(recallK);
+                    return s;
+                }, EsDocument.class);
+        return toSearchResults(response);
+    }
+
+    private List<SearchResult> executeTextSearchWithPermission(String query,
+                                                               String userDbId,
+                                                               List<String> userEffectiveTags,
+                                                               int topK) throws Exception {
+        int recallK = topK * RECALL_MULTIPLIER;
+        SearchResponse<EsDocument> response = esClient.search(s -> s
+                        .index("knowledge_base")
+                        .query(q -> q.bool(b -> b
+                                .must(m -> m.match(ma -> ma
+                                        .field("textContent")
+                                        .query(query)
+                                ))
+                                .filter(f -> permissionFilter(f, userDbId, userEffectiveTags))
+                        ))
+                        .minScore(0.3d)
+                        .size(recallK),
+                EsDocument.class
+        );
+        return toSearchResults(response);
+    }
+
+    private ObjectBuilder<Query> permissionFilter(Query.Builder f, String userDbId, List<String> userEffectiveTags) {
+        return f.bool(bf -> bf
+                .should(s1 -> s1.term(t -> t.field("userId").value(userDbId)))
+                .should(s2 -> s2.term(t -> t.field("public").value(true)))
+                .should(s3 -> {
+                    if (userEffectiveTags.isEmpty()) {
+                        return s3.matchNone(mn -> mn);
+                    } else if (userEffectiveTags.size() == 1) {
+                        return s3.term(t -> t.field("orgTag").value(userEffectiveTags.get(0)));
+                    } else {
+                        return s3.bool(inner -> {
+                            userEffectiveTags.forEach(tag -> inner.should(sh2 -> sh2.term(t -> t.field("orgTag").value(tag))));
+                            return inner;
+                        });
+                    }
+                })
+        );
+    }
+
+    private List<SearchResult> toSearchResults(SearchResponse<EsDocument> response) {
+        return response.hits().hits().stream()
+                .map(hit -> {
+                    assert hit.source() != null;
+                    return new SearchResult(
+                            hit.source().getFileMd5(),
+                            hit.source().getChunkId(),
+                            hit.source().getTextContent(),
+                            hit.score(),
+                            hit.source().getUserId(),
+                            hit.source().getOrgTag(),
+                            hit.source().isPublic(),
+                            null,
+                            hit.source().getIngestionTraceId()
+                    );
+                })
+                .toList();
+    }
+
+    List<SearchResult> mergeWithRrf(List<SearchResult> vectorResults, List<SearchResult> textResults, int topK) {
+        Map<String, RrfCandidate> candidates = new LinkedHashMap<>();
+        addRrfCandidates(candidates, vectorResults, true);
+        addRrfCandidates(candidates, textResults, false);
+
+        return candidates.values().stream()
+                .sorted(Comparator
+                        .comparingDouble(RrfCandidate::rrfScore).reversed()
+                        .thenComparing(RrfCandidate::dualHit, Comparator.reverseOrder())
+                        .thenComparing(Comparator.comparingDouble(RrfCandidate::bestOriginalScore).reversed())
+                        .thenComparing(RrfCandidate::key))
+                .limit(topK)
+                .map(RrfCandidate::toSearchResult)
+                .toList();
+    }
+
+    private void addRrfCandidates(Map<String, RrfCandidate> candidates, List<SearchResult> results, boolean vector) {
+        for (int i = 0; i < results.size(); i++) {
+            SearchResult result = results.get(i);
+            String key = chunkKey(result);
+            RrfCandidate candidate = candidates.computeIfAbsent(key, ignored -> new RrfCandidate(key, result));
+            candidate.add(result, i + 1, vector);
+        }
+    }
+
+    private String chunkKey(SearchResult result) {
+        return result.getFileMd5() + ":" + result.getChunkId();
+    }
+
+    private static class RrfCandidate {
+        private final String key;
+        private final SearchResult result;
+        private double rrfScore;
+        private double bestOriginalScore;
+        private boolean vectorHit;
+        private boolean textHit;
+
+        private RrfCandidate(String key, SearchResult result) {
+            this.key = key;
+            this.result = result;
+            this.bestOriginalScore = safeScore(result);
+        }
+
+        private void add(SearchResult next, int rank, boolean vector) {
+            rrfScore += 1.0d / (RRF_K + rank);
+            if (vector) {
+                vectorHit = true;
+            } else {
+                textHit = true;
+            }
+            if (safeScore(next) > bestOriginalScore) {
+                bestOriginalScore = safeScore(next);
+            }
+        }
+
+        private String key() {
+            return key;
+        }
+
+        private double rrfScore() {
+            return rrfScore;
+        }
+
+        private boolean dualHit() {
+            return vectorHit && textHit;
+        }
+
+        private double bestOriginalScore() {
+            return bestOriginalScore;
+        }
+
+        private SearchResult toSearchResult() {
+            return new SearchResult(
+                    result.getFileMd5(),
+                    result.getChunkId(),
+                    result.getTextContent(),
+                    rrfScore,
+                    result.getUserId(),
+                    result.getOrgTag(),
+                    Boolean.TRUE.equals(result.getIsPublic()),
+                    result.getFileName(),
+                    result.getIngestionTraceId()
+            );
+        }
+
+        private static double safeScore(SearchResult result) {
+            return result.getScore() != null ? result.getScore() : 0.0d;
         }
     }
 

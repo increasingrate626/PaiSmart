@@ -189,7 +189,7 @@ The permission model is central. A user can access a document when at least one 
 
 `OrganizationTag` supports a parent-child hierarchy. `OrgTagCacheService` resolves the user's effective tag set, including ancestors where applicable. Any search or document-listing change must preserve this three-way permission filter.
 
-Hybrid search is expected to use vector recall, keyword matching, and BM25 rescore. The documented weighting is `queryWeight = 0.2` and `rescoreWeight = 1.0`. If embedding fails, the search path should degrade to text-only behavior instead of breaking chat completely.
+Permissioned hybrid search uses two independent recall branches: vector KNN recall and BM25 text recall. `HybridSearchService.searchWithPermission()` merges the two ranked lists with Reciprocal Rank Fusion (RRF), deduplicating by `fileMd5 + chunkId`, and returns the requested `topK`. The vector branch must not require `textContent` keyword matches; both branches must preserve the same owner/public/org-tag permission filter. If embedding fails, the search path should degrade to text-only behavior instead of breaking chat completely.
 
 ## Configuration Notes
 
