@@ -68,5 +68,635 @@
         "textContent": "SCA 修复证据：当扫描结果可能是误报时，回答需要基于项目上下文判断是否可豁免，包括组件是否实际打包部署、漏洞代码路径是否可达、配置是否启用受影响功能、运行环境是否满足触发条件；豁免必须记录证据、责任人和复核时间。"
       }
     ]
+  },
+  {
+    "fileMd5": "7b835d364900085c19667c7cfd83991c",
+    "fileName": "eval-commons-text-cve-2022-42889.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-commons-text-cve-2022-42889",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????commons-text 1.9 ?? CVE-2022-42889 ??????? 1.10.0 ???????????? StringSubstitutor ????????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "3d9f2b88ba9ccc91da913d24d9d48c6c",
+    "fileName": "eval-snakeyaml-cve-2022-1471.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-snakeyaml-cve-2022-1471",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????snakeyaml 1.33 ?? CVE-2022-1471 ??????? 2.0 ???????????????? YAML ????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "c4a32fdb6a85eb7ff50f482fa61458c7",
+    "fileName": "eval-netty-cve-2023-44487.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-netty-cve-2023-44487",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????netty-codec-http2 4.1.93.Final ?? CVE-2023-44487 ??????? 4.1.100.Final ??????????????????? HTTP/2 Rapid Reset ???"
+      }
+    ]
+  },
+  {
+    "fileMd5": "d8740bfff1e735e670edc1a40eeed162",
+    "fileName": "eval-tomcat-cve-2023-46589.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-tomcat-cve-2023-46589",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????tomcat-embed-core 10.1.15 ?? CVE-2023-46589 ??????? 10.1.16 ????????????????? Tomcat ?????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "36aa60271e4c702b689c9ba8051e62f4",
+    "fileName": "eval-spring-security-cve-2023-34034.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-spring-security-cve-2023-34034",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????spring-security-web 6.1.1 ?? CVE-2023-34034 ??????? 6.1.2 ???????????? Spring Security ????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "2ca0edc84535202cecde688b4ae7e963",
+    "fileName": "eval-spring-boot-cve-2023-20883.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-spring-boot-cve-2023-20883",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????spring-boot-actuator 3.0.5 ?? CVE-2023-20883 ??????? 3.0.7 ???????????? actuator ???????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "1635108425d36945766f0b4322704364",
+    "fileName": "eval-hibernate-validator-cve-2023-1932.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-hibernate-validator-cve-2023-1932",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????hibernate-validator 6.2.4.Final ?? CVE-2023-1932 ??????? 6.2.5.Final ??????????????????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "9105fc69540813ba80775546b6a04a9c",
+    "fileName": "eval-okio-cve-2023-3635.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-okio-cve-2023-3635",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????okio 3.3.0 ?? CVE-2023-3635 ??????? 3.4.0 ?????????????? okhttp ? okio ????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "c08cfbf3da6a332476df599da074e821",
+    "fileName": "eval-guava-cve-2023-2976.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-guava-cve-2023-2976",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????guava 31.1-jre ?? CVE-2023-2976 ??????? 32.0.0-jre ???????????? shaded ???????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "9a2915e7b6a9008d76e742ed810e9b33",
+    "fileName": "eval-bcprov-cve-2023-33201.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-bcprov-cve-2023-33201",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????bcprov-jdk15on 1.70 ?? CVE-2023-33201 ??????? 1.74 ???????????????? Bouncy Castle artifact?"
+      }
+    ]
+  },
+  {
+    "fileMd5": "0ee4fc90f41ff80e3f02ed9fc6ba6a27",
+    "fileName": "eval-nimbus-jose-cve-2023-52428.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-nimbus-jose-cve-2023-52428",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????nimbus-jose-jwt 9.37 ?? CVE-2023-52428 ??????? 9.37.2 ???????????? JWT/JWK ?????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "bfd6f9b4fba9704341fce701aaa65763",
+    "fileName": "eval-json-smart-cve-2023-1370.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-json-smart-cve-2023-1370",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????json-smart 2.4.8 ?? CVE-2023-1370 ??????? 2.4.9 ???????????? nimbus-jose-jwt ??????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "67e06278d80ad54010be773990e60f54",
+    "fileName": "eval-woodstox-cve-2022-40152.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-woodstox-cve-2022-40152",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????woodstox-core 6.2.7 ?? CVE-2022-40152 ??????? 6.4.0 ???????????? XML ?????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "0626fdccbe5eb006f3ea04eacc4fa59f",
+    "fileName": "eval-xstream-cve-2021-39144.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-xstream-cve-2021-39144",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????xstream 1.4.18 ?? CVE-2021-39144 ??????? 1.4.19 ????????????????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "1b0f07443ad5b86dbdabfcd3b5fe2b74",
+    "fileName": "eval-httpclient-cve-2020-13956.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-httpclient-cve-2020-13956",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????httpclient 4.5.12 ?? CVE-2020-13956 ??????? 4.5.13 ???????????????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "f6252c4d270cc9029c5848a2230bbcb5",
+    "fileName": "eval-curl-cve-2023-38545.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-curl-cve-2023-38545",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????curl 8.3.0 ?? CVE-2023-38545 ??????? 8.4.0 ?????????????????? libcurl ?????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "f8dabf95fc148719351e158bf731be79",
+    "fileName": "eval-openssl-cve-2023-0286.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-openssl-cve-2023-0286",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????openssl 3.0.7 ?? CVE-2023-0286 ??????? 3.0.8 ??????????????????????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "6848c4ff2cedb2ed9afceab7a6bb7579",
+    "fileName": "eval-zlib-cve-2022-37434.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-zlib-cve-2022-37434",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????zlib 1.2.12 ?? CVE-2022-37434 ??????? 1.2.13 ?????????????????????? backport ??"
+      }
+    ]
+  },
+  {
+    "fileMd5": "7a8177885045558374e8c8547982f65d",
+    "fileName": "eval-lodash-cve-2021-23337.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-lodash-cve-2021-23337",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????lodash 4.17.20 ?? CVE-2021-23337 ??????? 4.17.21 ???????????? package-lock ? pnpm-lock ?????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "a4c3eda47260ecfd2bb5d40dbf9c0a35",
+    "fileName": "eval-minimist-cve-2021-44906.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-minimist-cve-2021-44906",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????minimist 1.2.5 ?? CVE-2021-44906 ??????? 1.2.6 ???????????? npm ls minimist ???????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "ccf55f2a535ba92b1d9c25edff47a7e3",
+    "fileName": "eval-axios-cve-2023-45857.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-axios-cve-2023-45857",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????axios 1.5.0 ?? CVE-2023-45857 ??????? 1.6.0 ???????????????? XSRF ???"
+      }
+    ]
+  },
+  {
+    "fileMd5": "70b8dd58e164ea306898c851487c0387",
+    "fileName": "eval-express-cve-2022-24999.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-express-cve-2022-24999",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????express 4.17.2 ?? CVE-2022-24999 ??????? 4.18.2 ???????????? qs ? body-parser ??????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "fa677c99912181044578064fa7a3b31c",
+    "fileName": "eval-webpack-dev-middleware-cve-2024-29180.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-webpack-dev-middleware-cve-2024-29180",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????webpack-dev-middleware 5.3.3 ?? CVE-2024-29180 ??????? 5.3.4 ??????????????????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "6024d827caa0b5ff580fa3812be5c97c",
+    "fileName": "eval-django-cve-2023-36053.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-django-cve-2023-36053",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????django 4.2.2 ?? CVE-2023-36053 ??????? 4.2.3 ????????????????????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "180e4e76ab51c758c5e5c7b25de19122",
+    "fileName": "eval-flask-cve-2023-30861.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-flask-cve-2023-30861",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????flask 2.2.4 ?? CVE-2023-30861 ??????? 2.2.5 ???????????? cookie ? session ?????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "47b1c854dd58331a4db21b452d685297",
+    "fileName": "eval-requests-cve-2023-32681.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-requests-cve-2023-32681",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????requests 2.30.0 ?? CVE-2023-32681 ??????? 2.31.0 ?????????????? Python ????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "6a926321ca71861df8a66e66beba5a48",
+    "fileName": "eval-pillow-cve-2023-4863.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-pillow-cve-2023-4863",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????pillow 10.0.0 ?? CVE-2023-4863 ??????? 10.0.1 ?????????????? libwebp ????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "426f5a9b00e9191f782777589317436d",
+    "fileName": "eval-cryptography-cve-2023-49083.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-cryptography-cve-2023-49083",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????cryptography 41.0.5 ?? CVE-2023-49083 ??????? 41.0.6 ???????????????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "916b857d8e02855aeded0d0a6b5611e5",
+    "fileName": "eval-golang-org-x-net-cve-2022-41717.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-golang-org-x-net-cve-2022-41717",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????golang.org/x/net v0.4.0 ?? CVE-2022-41717 ??????? v0.5.0 ???????????? go mod tidy ?????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "e1d74b08e41bc6769695d4f7b02daa1b",
+    "fileName": "eval-golang-org-x-crypto-cve-2023-48795.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-golang-org-x-crypto-cve-2023-48795",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????golang.org/x/crypto v0.16.0 ?? CVE-2023-48795 ??????? v0.17.0 ???????????? SSH Terrapin ?????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "82c7f21c769d86e41eee75e38b2e7377",
+    "fileName": "eval-rust-h2-cve-2024-27308.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-rust-h2-cve-2024-27308",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????h2 0.3.24 ?? CVE-2024-27308 ??????? 0.3.26 ???????????? cargo update -p h2?"
+      }
+    ]
+  },
+  {
+    "fileMd5": "332d6c6f254f511ecf32b4d8b1f39b03",
+    "fileName": "eval-rust-time-cve-2020-26235.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-rust-time-cve-2020-26235",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????time 0.2.22 ?? CVE-2020-26235 ??????? 0.2.23 ???????????? Cargo.lock ?????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "7b6efb152793bcbbb135ad423d3e5fba",
+    "fileName": "eval-container-base-image-openssl.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-container-base-image-openssl",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????ubuntu:22.04 openssl 3.0.2-0ubuntu1 ?? CVE-2023-0286 ??????? 3.0.2-0ubuntu1.8 ??????????????????????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "7db52671b5677a949b6dcacb3866baaf",
+    "fileName": "eval-maven-transitive-netty.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-maven-transitive-netty",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????netty-codec-http2 4.1.93.Final ?? CVE-2023-44487 ??????? 4.1.100.Final ???????????? Maven dependency:tree ?? spring-cloud-gateway ?????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "febd1daf9e5c6cfe194120e68c9e50fd",
+    "fileName": "eval-npm-transitive-minimist.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-npm-transitive-minimist",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????minimist 1.2.5 ?? CVE-2021-44906 ??????? 1.2.6 ??????????? overrides ? resolutions ???????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "82db64dbc3f17557a9b9511fb9beea8e",
+    "fileName": "eval-gradle-constraints-jackson.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-gradle-constraints-jackson",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????jackson-databind 2.13.4 ?? CVE-2022-42003 ??????? 2.13.4.1 ??????????? Gradle constraints ???????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "340ff1f199a12a30f5855d863c2e2e8c",
+    "fileName": "eval-sbom-direct-dependency.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-sbom-direct-dependency",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????commons-text 1.9 ?? CVE-2022-42889 ??????? 1.10.0 ?????????????? SBOM ?? direct dependency ????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "89b204c4fddb6daef219ce849a222cfc",
+    "fileName": "eval-false-positive-test-scope.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-false-positive-test-scope",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????junit 4.12 ?? CVE-2020-15250??????????????????????????????? test scope ???????????????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "e4432adaf631376af62c7d8c84ddeb2c",
+    "fileName": "eval-false-positive-unreachable-code.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-false-positive-unreachable-code",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????xstream 1.4.18 ?? CVE-2021-39144???????????????????????????????????????????????????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "0cb45f4136121d10d12bb11be79e6f41",
+    "fileName": "eval-license-policy-gpl.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-license-policy-gpl",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????some-gpl-lib 2.0.0 ? SCA ????? CVE ???????????????????????????????????????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "264c49ae90c0ad06e233526a177a93c2",
+    "fileName": "eval-manager-summary-critical-cve.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-manager-summary-critical-cve",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????log4j-core 2.14.1 ?? CVE-2021-44228 ??????? 2.15.0 ????????????????????????????????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "68b6be814af983d5e338a48b307a0508",
+    "fileName": "eval-developer-remediation-pr.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-developer-remediation-pr",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????lodash 4.17.20 ?? CVE-2021-23337 ??????? 4.17.21 ???????????????? package.json?????????????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "6d9606ef6219ffe96953371f7c77093e",
+    "fileName": "eval-secops-priority-epss.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-secops-priority-epss",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????spring-framework 5.3.17 ?? CVE-2022-22965 ??????? 5.3.18 ?????????????????????EPSS ?????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "14e417ad8be9429bf174b9ecd512e339",
+    "fileName": "eval-runtime-vs-buildtime.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-runtime-vs-buildtime",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????webpack-dev-middleware 5.3.3 ?? CVE-2024-29180 ??????? 5.3.4 ?????????????????????????????????"
+      }
+    ]
+  },
+  {
+    "fileMd5": "8f07fc399c0a0c1482f26d80c28ad460",
+    "fileName": "eval-python-lockfile-update.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-python-lockfile-update",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA ?????requests 2.30.0 ?? CVE-2023-32681 ??????? 2.31.0 ?????????????? poetry.lock?Pipfile.lock ? requirements lock?"
+      }
+    ]
   }
 ]

@@ -1,38 +1,95 @@
 [
   {
     "question": "log4j-core 2.14.1 是否受 CVE-2021-44228 影响？请给出修复版本。",
-    "expectedComponents": ["log4j-core"],
-    "expectedVersions": ["2.14.1"],
-    "expectedCves": ["CVE-2021-44228"],
+    "expectedComponents": [
+      "log4j-core"
+    ],
+    "expectedVersions": [
+      "2.14.1"
+    ],
+    "expectedCves": [
+      "CVE-2021-44228"
+    ],
     "expectedProjects": [],
-    "expectedFixedVersions": ["2.15.0"],
-    "expectedEvidence": ["11111111111111111111111111111111:1"],
-    "expectedKeyPoints": ["CVE-2021-44228", "2.15.0", "log4j-core"],
-    "tags": ["sca", "cve", "fixed-version", "log4j"],
+    "expectedFixedVersions": [
+      "2.15.0"
+    ],
+    "expectedEvidence": [
+      "11111111111111111111111111111111:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2021-44228",
+      "2.15.0",
+      "log4j-core"
+    ],
+    "tags": [
+      "sca",
+      "cve",
+      "fixed-version",
+      "log4j"
+    ],
     "enabled": true
   },
   {
     "question": "Spring Framework 5.3.17 是否受 Spring4Shell 影响？应该升级到哪个修复版本？",
-    "expectedComponents": ["spring-framework"],
-    "expectedVersions": ["5.3.17"],
-    "expectedCves": ["CVE-2022-22965"],
+    "expectedComponents": [
+      "spring-framework"
+    ],
+    "expectedVersions": [
+      "5.3.17"
+    ],
+    "expectedCves": [
+      "CVE-2022-22965"
+    ],
     "expectedProjects": [],
-    "expectedFixedVersions": ["5.3.18"],
-    "expectedEvidence": ["22222222222222222222222222222222:1"],
-    "expectedKeyPoints": ["CVE-2022-22965", "5.3.18", "Spring4Shell"],
-    "tags": ["sca", "cve", "fixed-version", "spring"],
+    "expectedFixedVersions": [
+      "5.3.18"
+    ],
+    "expectedEvidence": [
+      "22222222222222222222222222222222:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2022-22965",
+      "5.3.18",
+      "Spring4Shell"
+    ],
+    "tags": [
+      "sca",
+      "cve",
+      "fixed-version",
+      "spring"
+    ],
     "enabled": true
   },
   {
     "question": "jackson-databind 2.13.4 是否存在 CVE-2022-42003 风险？给出建议修复版本。",
-    "expectedComponents": ["jackson-databind"],
-    "expectedVersions": ["2.13.4"],
-    "expectedCves": ["CVE-2022-42003"],
+    "expectedComponents": [
+      "jackson-databind"
+    ],
+    "expectedVersions": [
+      "2.13.4"
+    ],
+    "expectedCves": [
+      "CVE-2022-42003"
+    ],
     "expectedProjects": [],
-    "expectedFixedVersions": ["2.13.4.1"],
-    "expectedEvidence": ["33333333333333333333333333333333:1"],
-    "expectedKeyPoints": ["CVE-2022-42003", "2.13.4.1", "jackson-databind"],
-    "tags": ["sca", "cve", "fixed-version", "jackson"],
+    "expectedFixedVersions": [
+      "2.13.4.1"
+    ],
+    "expectedEvidence": [
+      "33333333333333333333333333333333:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2022-42003",
+      "2.13.4.1",
+      "jackson-databind"
+    ],
+    "tags": [
+      "sca",
+      "cve",
+      "fixed-version",
+      "jackson"
+    ],
     "enabled": true
   },
   {
@@ -42,9 +99,19 @@
     "expectedCves": [],
     "expectedProjects": [],
     "expectedFixedVersions": [],
-    "expectedEvidence": ["44444444444444444444444444444444:1"],
-    "expectedKeyPoints": ["传递依赖", "依赖路径", "优先修复"],
-    "tags": ["sca", "transitive-dependency", "remediation"],
+    "expectedEvidence": [
+      "44444444444444444444444444444444:1"
+    ],
+    "expectedKeyPoints": [
+      "传递依赖",
+      "依赖路径",
+      "优先修复"
+    ],
+    "tags": [
+      "sca",
+      "transitive-dependency",
+      "remediation"
+    ],
     "enabled": true
   },
   {
@@ -54,9 +121,1357 @@
     "expectedCves": [],
     "expectedProjects": [],
     "expectedFixedVersions": [],
-    "expectedEvidence": ["55555555555555555555555555555555:1"],
-    "expectedKeyPoints": ["误报", "项目上下文", "豁免"],
-    "tags": ["sca", "false-positive", "policy"],
+    "expectedEvidence": [
+      "55555555555555555555555555555555:1"
+    ],
+    "expectedKeyPoints": [
+      "误报",
+      "项目上下文",
+      "豁免"
+    ],
+    "tags": [
+      "sca",
+      "false-positive",
+      "policy"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? commons text cve 2022 42889 ????commons-text 1.9 ??? CVE-2022-42889 ???????????",
+    "expectedComponents": [
+      "commons-text"
+    ],
+    "expectedVersions": [
+      "1.9"
+    ],
+    "expectedCves": [
+      "CVE-2022-42889"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "1.10.0"
+    ],
+    "expectedEvidence": [
+      "7b835d364900085c19667c7cfd83991c:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2022-42889",
+      "1.10.0",
+      "commons-text"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "commons"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? snakeyaml cve 2022 1471 ????snakeyaml 1.33 ??? CVE-2022-1471 ???????????",
+    "expectedComponents": [
+      "snakeyaml"
+    ],
+    "expectedVersions": [
+      "1.33"
+    ],
+    "expectedCves": [
+      "CVE-2022-1471"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "2.0"
+    ],
+    "expectedEvidence": [
+      "3d9f2b88ba9ccc91da913d24d9d48c6c:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2022-1471",
+      "2.0",
+      "snakeyaml"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "snakeyaml"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? netty cve 2023 44487 ????netty-codec-http2 4.1.93.Final ??? CVE-2023-44487 ???????????",
+    "expectedComponents": [
+      "netty-codec-http2"
+    ],
+    "expectedVersions": [
+      "4.1.93.Final"
+    ],
+    "expectedCves": [
+      "CVE-2023-44487"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "4.1.100.Final"
+    ],
+    "expectedEvidence": [
+      "c4a32fdb6a85eb7ff50f482fa61458c7:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-44487",
+      "4.1.100.Final",
+      "netty-codec-http2"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "netty"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? tomcat cve 2023 46589 ????tomcat-embed-core 10.1.15 ??? CVE-2023-46589 ???????????",
+    "expectedComponents": [
+      "tomcat-embed-core"
+    ],
+    "expectedVersions": [
+      "10.1.15"
+    ],
+    "expectedCves": [
+      "CVE-2023-46589"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "10.1.16"
+    ],
+    "expectedEvidence": [
+      "d8740bfff1e735e670edc1a40eeed162:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-46589",
+      "10.1.16",
+      "tomcat-embed-core"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "tomcat"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? spring security cve 2023 34034 ????spring-security-web 6.1.1 ??? CVE-2023-34034 ???????????",
+    "expectedComponents": [
+      "spring-security-web"
+    ],
+    "expectedVersions": [
+      "6.1.1"
+    ],
+    "expectedCves": [
+      "CVE-2023-34034"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "6.1.2"
+    ],
+    "expectedEvidence": [
+      "36aa60271e4c702b689c9ba8051e62f4:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-34034",
+      "6.1.2",
+      "spring-security-web"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "spring"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? spring boot cve 2023 20883 ????spring-boot-actuator 3.0.5 ??? CVE-2023-20883 ???????????",
+    "expectedComponents": [
+      "spring-boot-actuator"
+    ],
+    "expectedVersions": [
+      "3.0.5"
+    ],
+    "expectedCves": [
+      "CVE-2023-20883"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "3.0.7"
+    ],
+    "expectedEvidence": [
+      "2ca0edc84535202cecde688b4ae7e963:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-20883",
+      "3.0.7",
+      "spring-boot-actuator"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "spring"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? hibernate validator cve 2023 1932 ????hibernate-validator 6.2.4.Final ??? CVE-2023-1932 ???????????",
+    "expectedComponents": [
+      "hibernate-validator"
+    ],
+    "expectedVersions": [
+      "6.2.4.Final"
+    ],
+    "expectedCves": [
+      "CVE-2023-1932"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "6.2.5.Final"
+    ],
+    "expectedEvidence": [
+      "1635108425d36945766f0b4322704364:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-1932",
+      "6.2.5.Final",
+      "hibernate-validator"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "hibernate"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? okio cve 2023 3635 ????okio 3.3.0 ??? CVE-2023-3635 ???????????",
+    "expectedComponents": [
+      "okio"
+    ],
+    "expectedVersions": [
+      "3.3.0"
+    ],
+    "expectedCves": [
+      "CVE-2023-3635"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "3.4.0"
+    ],
+    "expectedEvidence": [
+      "9105fc69540813ba80775546b6a04a9c:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-3635",
+      "3.4.0",
+      "okio"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "okio"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? guava cve 2023 2976 ????guava 31.1-jre ??? CVE-2023-2976 ???????????",
+    "expectedComponents": [
+      "guava"
+    ],
+    "expectedVersions": [
+      "31.1-jre"
+    ],
+    "expectedCves": [
+      "CVE-2023-2976"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "32.0.0-jre"
+    ],
+    "expectedEvidence": [
+      "c08cfbf3da6a332476df599da074e821:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-2976",
+      "32.0.0-jre",
+      "guava"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "guava"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? bcprov cve 2023 33201 ????bcprov-jdk15on 1.70 ??? CVE-2023-33201 ???????????",
+    "expectedComponents": [
+      "bcprov-jdk15on"
+    ],
+    "expectedVersions": [
+      "1.70"
+    ],
+    "expectedCves": [
+      "CVE-2023-33201"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "1.74"
+    ],
+    "expectedEvidence": [
+      "9a2915e7b6a9008d76e742ed810e9b33:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-33201",
+      "1.74",
+      "bcprov-jdk15on"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "bcprov"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? nimbus jose cve 2023 52428 ????nimbus-jose-jwt 9.37 ??? CVE-2023-52428 ???????????",
+    "expectedComponents": [
+      "nimbus-jose-jwt"
+    ],
+    "expectedVersions": [
+      "9.37"
+    ],
+    "expectedCves": [
+      "CVE-2023-52428"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "9.37.2"
+    ],
+    "expectedEvidence": [
+      "0ee4fc90f41ff80e3f02ed9fc6ba6a27:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-52428",
+      "9.37.2",
+      "nimbus-jose-jwt"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "nimbus"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? json smart cve 2023 1370 ????json-smart 2.4.8 ??? CVE-2023-1370 ???????????",
+    "expectedComponents": [
+      "json-smart"
+    ],
+    "expectedVersions": [
+      "2.4.8"
+    ],
+    "expectedCves": [
+      "CVE-2023-1370"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "2.4.9"
+    ],
+    "expectedEvidence": [
+      "bfd6f9b4fba9704341fce701aaa65763:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-1370",
+      "2.4.9",
+      "json-smart"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "json"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? woodstox cve 2022 40152 ????woodstox-core 6.2.7 ??? CVE-2022-40152 ???????????",
+    "expectedComponents": [
+      "woodstox-core"
+    ],
+    "expectedVersions": [
+      "6.2.7"
+    ],
+    "expectedCves": [
+      "CVE-2022-40152"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "6.4.0"
+    ],
+    "expectedEvidence": [
+      "67e06278d80ad54010be773990e60f54:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2022-40152",
+      "6.4.0",
+      "woodstox-core"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "woodstox"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? xstream cve 2021 39144 ????xstream 1.4.18 ??? CVE-2021-39144 ???????????",
+    "expectedComponents": [
+      "xstream"
+    ],
+    "expectedVersions": [
+      "1.4.18"
+    ],
+    "expectedCves": [
+      "CVE-2021-39144"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "1.4.19"
+    ],
+    "expectedEvidence": [
+      "0626fdccbe5eb006f3ea04eacc4fa59f:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2021-39144",
+      "1.4.19",
+      "xstream"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "xstream"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? httpclient cve 2020 13956 ????httpclient 4.5.12 ??? CVE-2020-13956 ???????????",
+    "expectedComponents": [
+      "httpclient"
+    ],
+    "expectedVersions": [
+      "4.5.12"
+    ],
+    "expectedCves": [
+      "CVE-2020-13956"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "4.5.13"
+    ],
+    "expectedEvidence": [
+      "1b0f07443ad5b86dbdabfcd3b5fe2b74:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2020-13956",
+      "4.5.13",
+      "httpclient"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "httpclient"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? curl cve 2023 38545 ????curl 8.3.0 ??? CVE-2023-38545 ???????????",
+    "expectedComponents": [
+      "curl"
+    ],
+    "expectedVersions": [
+      "8.3.0"
+    ],
+    "expectedCves": [
+      "CVE-2023-38545"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "8.4.0"
+    ],
+    "expectedEvidence": [
+      "f6252c4d270cc9029c5848a2230bbcb5:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-38545",
+      "8.4.0",
+      "curl"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "curl"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? openssl cve 2023 0286 ????openssl 3.0.7 ??? CVE-2023-0286 ???????????",
+    "expectedComponents": [
+      "openssl"
+    ],
+    "expectedVersions": [
+      "3.0.7"
+    ],
+    "expectedCves": [
+      "CVE-2023-0286"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "3.0.8"
+    ],
+    "expectedEvidence": [
+      "f8dabf95fc148719351e158bf731be79:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-0286",
+      "3.0.8",
+      "openssl"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "openssl"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? zlib cve 2022 37434 ????zlib 1.2.12 ??? CVE-2022-37434 ???????????",
+    "expectedComponents": [
+      "zlib"
+    ],
+    "expectedVersions": [
+      "1.2.12"
+    ],
+    "expectedCves": [
+      "CVE-2022-37434"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "1.2.13"
+    ],
+    "expectedEvidence": [
+      "6848c4ff2cedb2ed9afceab7a6bb7579:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2022-37434",
+      "1.2.13",
+      "zlib"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "zlib"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? lodash cve 2021 23337 ????lodash 4.17.20 ??? CVE-2021-23337 ???????????",
+    "expectedComponents": [
+      "lodash"
+    ],
+    "expectedVersions": [
+      "4.17.20"
+    ],
+    "expectedCves": [
+      "CVE-2021-23337"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "4.17.21"
+    ],
+    "expectedEvidence": [
+      "7a8177885045558374e8c8547982f65d:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2021-23337",
+      "4.17.21",
+      "lodash"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "lodash"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? minimist cve 2021 44906 ????minimist 1.2.5 ??? CVE-2021-44906 ???????????",
+    "expectedComponents": [
+      "minimist"
+    ],
+    "expectedVersions": [
+      "1.2.5"
+    ],
+    "expectedCves": [
+      "CVE-2021-44906"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "1.2.6"
+    ],
+    "expectedEvidence": [
+      "a4c3eda47260ecfd2bb5d40dbf9c0a35:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2021-44906",
+      "1.2.6",
+      "minimist"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "minimist"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? axios cve 2023 45857 ????axios 1.5.0 ??? CVE-2023-45857 ???????????",
+    "expectedComponents": [
+      "axios"
+    ],
+    "expectedVersions": [
+      "1.5.0"
+    ],
+    "expectedCves": [
+      "CVE-2023-45857"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "1.6.0"
+    ],
+    "expectedEvidence": [
+      "ccf55f2a535ba92b1d9c25edff47a7e3:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-45857",
+      "1.6.0",
+      "axios"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "axios"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? express cve 2022 24999 ????express 4.17.2 ??? CVE-2022-24999 ???????????",
+    "expectedComponents": [
+      "express"
+    ],
+    "expectedVersions": [
+      "4.17.2"
+    ],
+    "expectedCves": [
+      "CVE-2022-24999"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "4.18.2"
+    ],
+    "expectedEvidence": [
+      "70b8dd58e164ea306898c851487c0387:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2022-24999",
+      "4.18.2",
+      "express"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "express"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? webpack dev middleware cve 2024 29180 ????webpack-dev-middleware 5.3.3 ??? CVE-2024-29180 ???????????",
+    "expectedComponents": [
+      "webpack-dev-middleware"
+    ],
+    "expectedVersions": [
+      "5.3.3"
+    ],
+    "expectedCves": [
+      "CVE-2024-29180"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "5.3.4"
+    ],
+    "expectedEvidence": [
+      "fa677c99912181044578064fa7a3b31c:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2024-29180",
+      "5.3.4",
+      "webpack-dev-middleware"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "webpack"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? django cve 2023 36053 ????django 4.2.2 ??? CVE-2023-36053 ???????????",
+    "expectedComponents": [
+      "django"
+    ],
+    "expectedVersions": [
+      "4.2.2"
+    ],
+    "expectedCves": [
+      "CVE-2023-36053"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "4.2.3"
+    ],
+    "expectedEvidence": [
+      "6024d827caa0b5ff580fa3812be5c97c:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-36053",
+      "4.2.3",
+      "django"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "django"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? flask cve 2023 30861 ????flask 2.2.4 ??? CVE-2023-30861 ???????????",
+    "expectedComponents": [
+      "flask"
+    ],
+    "expectedVersions": [
+      "2.2.4"
+    ],
+    "expectedCves": [
+      "CVE-2023-30861"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "2.2.5"
+    ],
+    "expectedEvidence": [
+      "180e4e76ab51c758c5e5c7b25de19122:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-30861",
+      "2.2.5",
+      "flask"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "flask"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? requests cve 2023 32681 ????requests 2.30.0 ??? CVE-2023-32681 ???????????",
+    "expectedComponents": [
+      "requests"
+    ],
+    "expectedVersions": [
+      "2.30.0"
+    ],
+    "expectedCves": [
+      "CVE-2023-32681"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "2.31.0"
+    ],
+    "expectedEvidence": [
+      "47b1c854dd58331a4db21b452d685297:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-32681",
+      "2.31.0",
+      "requests"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "requests"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? pillow cve 2023 4863 ????pillow 10.0.0 ??? CVE-2023-4863 ???????????",
+    "expectedComponents": [
+      "pillow"
+    ],
+    "expectedVersions": [
+      "10.0.0"
+    ],
+    "expectedCves": [
+      "CVE-2023-4863"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "10.0.1"
+    ],
+    "expectedEvidence": [
+      "6a926321ca71861df8a66e66beba5a48:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-4863",
+      "10.0.1",
+      "pillow"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "pillow"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? cryptography cve 2023 49083 ????cryptography 41.0.5 ??? CVE-2023-49083 ???????????",
+    "expectedComponents": [
+      "cryptography"
+    ],
+    "expectedVersions": [
+      "41.0.5"
+    ],
+    "expectedCves": [
+      "CVE-2023-49083"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "41.0.6"
+    ],
+    "expectedEvidence": [
+      "426f5a9b00e9191f782777589317436d:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-49083",
+      "41.0.6",
+      "cryptography"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "cryptography"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? golang org x net cve 2022 41717 ????golang.org/x/net v0.4.0 ??? CVE-2022-41717 ???????????",
+    "expectedComponents": [
+      "golang.org/x/net"
+    ],
+    "expectedVersions": [
+      "v0.4.0"
+    ],
+    "expectedCves": [
+      "CVE-2022-41717"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "v0.5.0"
+    ],
+    "expectedEvidence": [
+      "916b857d8e02855aeded0d0a6b5611e5:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2022-41717",
+      "v0.5.0",
+      "golang.org/x/net"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "golang"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? golang org x crypto cve 2023 48795 ????golang.org/x/crypto v0.16.0 ??? CVE-2023-48795 ???????????",
+    "expectedComponents": [
+      "golang.org/x/crypto"
+    ],
+    "expectedVersions": [
+      "v0.16.0"
+    ],
+    "expectedCves": [
+      "CVE-2023-48795"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "v0.17.0"
+    ],
+    "expectedEvidence": [
+      "e1d74b08e41bc6769695d4f7b02daa1b:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-48795",
+      "v0.17.0",
+      "golang.org/x/crypto"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "golang"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? rust h2 cve 2024 27308 ????h2 0.3.24 ??? CVE-2024-27308 ???????????",
+    "expectedComponents": [
+      "h2"
+    ],
+    "expectedVersions": [
+      "0.3.24"
+    ],
+    "expectedCves": [
+      "CVE-2024-27308"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "0.3.26"
+    ],
+    "expectedEvidence": [
+      "82c7f21c769d86e41eee75e38b2e7377:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2024-27308",
+      "0.3.26",
+      "h2"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "rust"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? rust time cve 2020 26235 ????time 0.2.22 ??? CVE-2020-26235 ???????????",
+    "expectedComponents": [
+      "time"
+    ],
+    "expectedVersions": [
+      "0.2.22"
+    ],
+    "expectedCves": [
+      "CVE-2020-26235"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "0.2.23"
+    ],
+    "expectedEvidence": [
+      "332d6c6f254f511ecf32b4d8b1f39b03:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2020-26235",
+      "0.2.23",
+      "time"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "rust"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? container base image openssl ????ubuntu:22.04 openssl 3.0.2-0ubuntu1 ??? CVE-2023-0286 ???????????",
+    "expectedComponents": [
+      "ubuntu:22.04 openssl"
+    ],
+    "expectedVersions": [
+      "3.0.2-0ubuntu1"
+    ],
+    "expectedCves": [
+      "CVE-2023-0286"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "3.0.2-0ubuntu1.8"
+    ],
+    "expectedEvidence": [
+      "7b6efb152793bcbbb135ad423d3e5fba:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-0286",
+      "3.0.2-0ubuntu1.8",
+      "ubuntu:22.04 openssl"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "container"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? maven transitive netty ????netty-codec-http2 4.1.93.Final ??? CVE-2023-44487 ???????????",
+    "expectedComponents": [
+      "netty-codec-http2"
+    ],
+    "expectedVersions": [
+      "4.1.93.Final"
+    ],
+    "expectedCves": [
+      "CVE-2023-44487"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "4.1.100.Final"
+    ],
+    "expectedEvidence": [
+      "7db52671b5677a949b6dcacb3866baaf:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-44487",
+      "4.1.100.Final",
+      "netty-codec-http2"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "maven"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? npm transitive minimist ????minimist 1.2.5 ??? CVE-2021-44906 ???????????",
+    "expectedComponents": [
+      "minimist"
+    ],
+    "expectedVersions": [
+      "1.2.5"
+    ],
+    "expectedCves": [
+      "CVE-2021-44906"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "1.2.6"
+    ],
+    "expectedEvidence": [
+      "febd1daf9e5c6cfe194120e68c9e50fd:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2021-44906",
+      "1.2.6",
+      "minimist"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "npm"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? gradle constraints jackson ????jackson-databind 2.13.4 ??? CVE-2022-42003 ???????????",
+    "expectedComponents": [
+      "jackson-databind"
+    ],
+    "expectedVersions": [
+      "2.13.4"
+    ],
+    "expectedCves": [
+      "CVE-2022-42003"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "2.13.4.1"
+    ],
+    "expectedEvidence": [
+      "82db64dbc3f17557a9b9511fb9beea8e:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2022-42003",
+      "2.13.4.1",
+      "jackson-databind"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "gradle"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? sbom direct dependency ????commons-text 1.9 ??? CVE-2022-42889 ???????????",
+    "expectedComponents": [
+      "commons-text"
+    ],
+    "expectedVersions": [
+      "1.9"
+    ],
+    "expectedCves": [
+      "CVE-2022-42889"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "1.10.0"
+    ],
+    "expectedEvidence": [
+      "340ff1f199a12a30f5855d863c2e2e8c:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2022-42889",
+      "1.10.0",
+      "commons-text"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "sbom"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? false positive test scope ????junit 4.12 ?? CVE-2020-15250 ?????????????",
+    "expectedComponents": [
+      "junit"
+    ],
+    "expectedVersions": [
+      "4.12"
+    ],
+    "expectedCves": [
+      "CVE-2020-15250"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [],
+    "expectedEvidence": [
+      "89b204c4fddb6daef219ce849a222cfc:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2020-15250",
+      "junit"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "false"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? false positive unreachable code ????xstream 1.4.18 ?? CVE-2021-39144 ?????????????",
+    "expectedComponents": [
+      "xstream"
+    ],
+    "expectedVersions": [
+      "1.4.18"
+    ],
+    "expectedCves": [
+      "CVE-2021-39144"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [],
+    "expectedEvidence": [
+      "e4432adaf631376af62c7d8c84ddeb2c:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2021-39144",
+      "xstream"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "false"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? license policy gpl ????some-gpl-lib 2.0.0 ? SCA ???? CVE ?????????",
+    "expectedComponents": [
+      "some-gpl-lib"
+    ],
+    "expectedVersions": [
+      "2.0.0"
+    ],
+    "expectedCves": [],
+    "expectedProjects": [],
+    "expectedFixedVersions": [],
+    "expectedEvidence": [
+      "0cb45f4136121d10d12bb11be79e6f41:1"
+    ],
+    "expectedKeyPoints": [
+      "some-gpl-lib"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "license"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? manager summary critical cve ????log4j-core 2.14.1 ??? CVE-2021-44228 ???????????",
+    "expectedComponents": [
+      "log4j-core"
+    ],
+    "expectedVersions": [
+      "2.14.1"
+    ],
+    "expectedCves": [
+      "CVE-2021-44228"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "2.15.0"
+    ],
+    "expectedEvidence": [
+      "264c49ae90c0ad06e233526a177a93c2:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2021-44228",
+      "2.15.0",
+      "log4j-core"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "manager"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? developer remediation pr ????lodash 4.17.20 ??? CVE-2021-23337 ???????????",
+    "expectedComponents": [
+      "lodash"
+    ],
+    "expectedVersions": [
+      "4.17.20"
+    ],
+    "expectedCves": [
+      "CVE-2021-23337"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "4.17.21"
+    ],
+    "expectedEvidence": [
+      "68b6be814af983d5e338a48b307a0508:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2021-23337",
+      "4.17.21",
+      "lodash"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "developer"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? secops priority epss ????spring-framework 5.3.17 ??? CVE-2022-22965 ???????????",
+    "expectedComponents": [
+      "spring-framework"
+    ],
+    "expectedVersions": [
+      "5.3.17"
+    ],
+    "expectedCves": [
+      "CVE-2022-22965"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "5.3.18"
+    ],
+    "expectedEvidence": [
+      "6d9606ef6219ffe96953371f7c77093e:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2022-22965",
+      "5.3.18",
+      "spring-framework"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "secops"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? runtime vs buildtime ????webpack-dev-middleware 5.3.3 ??? CVE-2024-29180 ???????????",
+    "expectedComponents": [
+      "webpack-dev-middleware"
+    ],
+    "expectedVersions": [
+      "5.3.3"
+    ],
+    "expectedCves": [
+      "CVE-2024-29180"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "5.3.4"
+    ],
+    "expectedEvidence": [
+      "14e417ad8be9429bf174b9ecd512e339:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2024-29180",
+      "5.3.4",
+      "webpack-dev-middleware"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "runtime"
+    ],
+    "enabled": true
+  },
+  {
+    "question": "? python lockfile update ????requests 2.30.0 ??? CVE-2023-32681 ???????????",
+    "expectedComponents": [
+      "requests"
+    ],
+    "expectedVersions": [
+      "2.30.0"
+    ],
+    "expectedCves": [
+      "CVE-2023-32681"
+    ],
+    "expectedProjects": [],
+    "expectedFixedVersions": [
+      "2.31.0"
+    ],
+    "expectedEvidence": [
+      "8f07fc399c0a0c1482f26d80c28ad460:1"
+    ],
+    "expectedKeyPoints": [
+      "CVE-2023-32681",
+      "2.31.0",
+      "requests"
+    ],
+    "tags": [
+      "sca",
+      "eval",
+      "python"
+    ],
     "enabled": true
   }
 ]
