@@ -95,3 +95,4 @@ homepage/.cache/
 # Python generated files
 __pycache__/
 *.py[cod]
+.deepeval/
