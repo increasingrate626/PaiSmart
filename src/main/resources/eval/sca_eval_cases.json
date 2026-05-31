@@ -1,0 +1,62 @@
+[
+  {
+    "question": "log4j-core 2.14.1 是否受 CVE-2021-44228 影响？请给出修复版本。",
+    "expectedComponents": ["log4j-core"],
+    "expectedVersions": ["2.14.1"],
+    "expectedCves": ["CVE-2021-44228"],
+    "expectedProjects": [],
+    "expectedFixedVersions": ["2.15.0"],
+    "expectedEvidence": ["11111111111111111111111111111111:1"],
+    "expectedKeyPoints": ["CVE-2021-44228", "2.15.0", "log4j-core"],
+    "tags": ["sca", "cve", "fixed-version", "log4j"],
+    "enabled": true
+  },
+  {
+    "question": "Spring Framework 5.3.17 是否受 Spring4Shell 影响？应该升级到哪个修复版本？",
+    "expectedComponents": ["spring-framework"],
+    "expectedVersions": ["5.3.17"],
+    "expectedCves": ["CVE-2022-22965"],
+    "expectedProjects": [],
+    "expectedFixedVersions": ["5.3.18"],
+    "expectedEvidence": ["22222222222222222222222222222222:1"],
+    "expectedKeyPoints": ["CVE-2022-22965", "5.3.18", "Spring4Shell"],
+    "tags": ["sca", "cve", "fixed-version", "spring"],
+    "enabled": true
+  },
+  {
+    "question": "jackson-databind 2.13.4 是否存在 CVE-2022-42003 风险？给出建议修复版本。",
+    "expectedComponents": ["jackson-databind"],
+    "expectedVersions": ["2.13.4"],
+    "expectedCves": ["CVE-2022-42003"],
+    "expectedProjects": [],
+    "expectedFixedVersions": ["2.13.4.1"],
+    "expectedEvidence": ["33333333333333333333333333333333:1"],
+    "expectedKeyPoints": ["CVE-2022-42003", "2.13.4.1", "jackson-databind"],
+    "tags": ["sca", "cve", "fixed-version", "jackson"],
+    "enabled": true
+  },
+  {
+    "question": "如果漏洞组件是传递依赖，回答中需要说明如何定位依赖路径和优先修复策略。",
+    "expectedComponents": [],
+    "expectedVersions": [],
+    "expectedCves": [],
+    "expectedProjects": [],
+    "expectedFixedVersions": [],
+    "expectedEvidence": ["44444444444444444444444444444444:1"],
+    "expectedKeyPoints": ["传递依赖", "依赖路径", "优先修复"],
+    "tags": ["sca", "transitive-dependency", "remediation"],
+    "enabled": true
+  },
+  {
+    "question": "当扫描结果可能是误报时，回答中需要说明如何基于项目上下文判断是否可豁免。",
+    "expectedComponents": [],
+    "expectedVersions": [],
+    "expectedCves": [],
+    "expectedProjects": [],
+    "expectedFixedVersions": [],
+    "expectedEvidence": ["55555555555555555555555555555555:1"],
+    "expectedKeyPoints": ["误报", "项目上下文", "豁免"],
+    "tags": ["sca", "false-positive", "policy"],
+    "enabled": true
+  }
+]

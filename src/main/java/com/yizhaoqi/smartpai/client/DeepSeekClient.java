@@ -50,7 +50,7 @@ public class DeepSeekClient {
                              Consumer<String> onChunk,
                              Consumer<Throwable> onError) {
         
-        Map<String, Object> request = buildRequest(userMessage, context, history);
+        Map<String, Object> request = buildRequest(userMessage, context, history, true);
         
         webClient.post()
                 .uri("/chat/completions")
@@ -62,6 +62,41 @@ public class DeepSeekClient {
                     chunk -> processChunk(chunk, onChunk),
                     onError
                 );
+    }
+
+    public Optional<String> completeAnswer(String userMessage,
+                                           String context,
+                                           List<Map<String, String>> history) {
+        try {
+            Map<String, Object> request = buildRequest(userMessage, context, history, false);
+            String response = webClient.post()
+                    .uri("/chat/completions")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(request)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block(Duration.ofSeconds(60));
+
+            if (response == null || response.isBlank()) {
+                logger.warn("DeepSeek answer completion returned empty response");
+                return Optional.empty();
+            }
+
+            JsonNode root = objectMapper.readTree(response);
+            String content = root.path("choices")
+                    .path(0)
+                    .path("message")
+                    .path("content")
+                    .asText("");
+            if (content == null || content.isBlank()) {
+                logger.warn("DeepSeek answer completion content was empty");
+                return Optional.empty();
+            }
+            return Optional.of(content.trim());
+        } catch (Exception e) {
+            logger.warn("DeepSeek answer completion failed", e);
+            return Optional.empty();
+        }
     }
 
     public <T> Optional<T> completeJson(String systemPrompt, String userPrompt, Class<T> responseType) {
@@ -137,7 +172,8 @@ public class DeepSeekClient {
     
     private Map<String, Object> buildRequest(String userMessage, 
                                            String context,
-                                           List<Map<String, String>> history) {
+                                           List<Map<String, String>> history,
+                                           boolean stream) {
         logger.info("构建请求，用户消息：{}，上下文长度：{}，历史消息数：{}", 
                    userMessage, 
                    context != null ? context.length() : 0, 
@@ -146,7 +182,7 @@ public class DeepSeekClient {
         Map<String, Object> request = new java.util.HashMap<>();
         request.put("model", model);
         request.put("messages", buildMessages(userMessage, context, history));
-        request.put("stream", true);
+        request.put("stream", stream);
         // 生成参数
         AiProperties.Generation gen = aiProperties.getGeneration();
         if (gen.getTemperature() != null) {

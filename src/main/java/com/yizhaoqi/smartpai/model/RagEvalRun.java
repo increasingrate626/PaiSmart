@@ -39,6 +39,18 @@ public class RagEvalRun {
     @Column(name = "average_evidence_hit_rate", nullable = false)
     private double averageEvidenceHitRate;
 
+    @Column(name = "average_faithfulness")
+    private Double averageFaithfulness;
+
+    @Column(name = "average_citation_accuracy")
+    private Double averageCitationAccuracy;
+
+    @Column(name = "average_fixed_version_accuracy")
+    private Double averageFixedVersionAccuracy;
+
+    @Column(name = "quality_gate_passed", nullable = false)
+    private boolean qualityGatePassed;
+
     @Column(columnDefinition = "TEXT")
     private String note;
 }

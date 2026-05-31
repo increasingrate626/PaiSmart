@@ -1,0 +1,72 @@
+[
+  {
+    "fileMd5": "11111111111111111111111111111111",
+    "fileName": "eval-log4j-remediation.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-log4j",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA 修复证据：log4j-core 2.14.1 受 CVE-2021-44228 影响，该漏洞通常称为 Log4Shell。组件使用 2.14.1 时应升级到 2.15.0 或更高的安全版本，并确认运行时没有继续加载旧版本依赖。"
+      }
+    ]
+  },
+  {
+    "fileMd5": "22222222222222222222222222222222",
+    "fileName": "eval-spring-framework-remediation.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-spring",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA 修复证据：Spring Framework 5.3.17 受 Spring4Shell（CVE-2022-22965）影响。5.3.x 分支的修复版本为 5.3.18，排查时需要确认 spring-webmvc、spring-beans 等相关模块版本一起升级。"
+      }
+    ]
+  },
+  {
+    "fileMd5": "33333333333333333333333333333333",
+    "fileName": "eval-jackson-databind-remediation.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-jackson",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA 修复证据：jackson-databind 2.13.4 存在 CVE-2022-42003 风险。2.13.x 分支建议升级到 2.13.4.1 或后续安全版本，并同步检查 jackson-core、jackson-annotations 版本一致性。"
+      }
+    ]
+  },
+  {
+    "fileMd5": "44444444444444444444444444444444",
+    "fileName": "eval-transitive-dependency-remediation.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-transitive",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA 修复证据：当漏洞组件来自传递依赖时，回答必须说明依赖路径定位方法，例如 Maven dependency:tree、Gradle dependencies 或 SBOM 依赖链；优先修复策略是升级直接依赖、使用 dependencyManagement/constraints 固定安全版本，并回归扫描确认漏洞消失。"
+      }
+    ]
+  },
+  {
+    "fileMd5": "55555555555555555555555555555555",
+    "fileName": "eval-false-positive-policy.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-false-positive",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA 修复证据：当扫描结果可能是误报时，回答需要基于项目上下文判断是否可豁免，包括组件是否实际打包部署、漏洞代码路径是否可达、配置是否启用受影响功能、运行环境是否满足触发条件；豁免必须记录证据、责任人和复核时间。"
+      }
+    ]
+  }
+]

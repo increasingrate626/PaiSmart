@@ -50,16 +50,19 @@ public class AiProperties {
         private boolean logLlmDecisions = false;
         private int logPromptPreviewChars = 300;
         private int logOutputPreviewChars = 1200;
-        private int firstRoundTopK = 12;
-        private int rewriteRoundTopK = 8;
-        private int maxSubQueries = 4;
+        private int firstRoundTopK = 8;
+        private int rewriteRoundTopK = 5;
+        private int maxSubQueries = 2;
+        private int maxFinalEvidenceCount = 6;
+        private int maxEvaluatorEvidenceCount = 24;
+        private int maxEvaluatorPromptChars = 6000;
     }
 
     @Data
     public static class Graph {
         private boolean enabled = true;
         private int maxDepth = 2;
-        private int topK = 8;
+        private int topK = 5;
         private boolean extractionEnabled = true;
     }
 }

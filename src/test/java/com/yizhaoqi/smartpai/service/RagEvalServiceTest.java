@@ -4,6 +4,7 @@ import com.yizhaoqi.smartpai.entity.SearchResult;
 import com.yizhaoqi.smartpai.entity.agent.AgentTraceStep;
 import com.yizhaoqi.smartpai.entity.agent.AgenticRagRequest;
 import com.yizhaoqi.smartpai.entity.agent.AgenticRagResult;
+import com.yizhaoqi.smartpai.client.DeepSeekClient;
 import com.yizhaoqi.smartpai.model.RagEvalCase;
 import com.yizhaoqi.smartpai.model.RagEvalCaseResult;
 import com.yizhaoqi.smartpai.model.RagEvalRun;
@@ -18,6 +19,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -41,12 +43,15 @@ class RagEvalServiceTest {
     @Mock
     private AgenticRagService agenticRagService;
 
+    @Mock
+    private DeepSeekClient deepSeekClient;
+
     private RagEvalService service;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        service = new RagEvalService(caseRepository, runRepository, resultRepository, agenticRagService);
+        service = new RagEvalService(caseRepository, runRepository, resultRepository, agenticRagService, deepSeekClient);
         when(runRepository.save(any(RagEvalRun.class))).thenAnswer(invocation -> {
             RagEvalRun run = invocation.getArgument(0);
             if (run.getId() == null) {
@@ -55,6 +60,9 @@ class RagEvalServiceTest {
             return run;
         });
         when(resultRepository.save(any(RagEvalCaseResult.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(deepSeekClient.completeAnswer(any(), any(), any())).thenReturn(Optional.of(
+                "log4j-core 2.14.1 is affected by CVE-2021-44228 and fixed in 2.15.0 (source#1: a.txt)"
+        ));
     }
 
     @Test
@@ -88,9 +96,102 @@ class RagEvalServiceTest {
         assertTrue(saved.isKeyPointsMatched());
         assertTrue(saved.isEntityCoverageMatched());
         assertEquals("", saved.getFailureReason());
+        assertTrue(saved.getAnswer().contains("fixed in 2.15.0"));
         assertTrue(saved.getFinalContext().contains("CVE-2021-44228"));
         assertTrue(saved.getSelectedEvidenceJson().contains("file-a:7"));
+        assertTrue(saved.getReferenceMappingJson().contains("file-a"));
         assertTrue(saved.getTraceJson().contains("PLAN_QUERY"));
+        verify(deepSeekClient).completeAnswer(evalCase.getQuestion(), saved.getFinalContext(), List.of());
+    }
+
+    @Test
+    void answerGenerationFailurePersistsFailureReason() {
+        RagEvalCase evalCase = caseWithExpectations();
+        when(caseRepository.findByEnabledTrue()).thenReturn(List.of(evalCase));
+        when(agenticRagService.run(any(AgenticRagRequest.class))).thenReturn(resultWithExpectedEvidence());
+        when(deepSeekClient.completeAnswer(any(), any(), any())).thenReturn(Optional.empty());
+
+        service.runEnabledCases("alice", "");
+
+        ArgumentCaptor<RagEvalCaseResult> captor = ArgumentCaptor.forClass(RagEvalCaseResult.class);
+        verify(resultRepository).save(captor.capture());
+        RagEvalCaseResult saved = captor.getValue();
+        assertFalse(saved.isPassed());
+        assertEquals("ANSWER_GENERATION_FAILED", saved.getFailureReason());
+        assertEquals("", saved.getAnswer());
+    }
+
+    @Test
+    void exportRunResultsIncludesCaseExpectationsAnswerAndEvidence() {
+        RagEvalRun run = new RagEvalRun();
+        run.setId(10L);
+        run.setTotalCases(1);
+        RagEvalCase evalCase = caseWithExpectations();
+        RagEvalCaseResult result = new RagEvalCaseResult();
+        result.setId(100L);
+        result.setRunId(10L);
+        result.setCaseId(1L);
+        result.setPassed(true);
+        result.setAnswer("fixed in 2.15.0 (source#1: a.txt)");
+        result.setFinalContext("[1] log4j context");
+        result.setSelectedEvidenceJson("[{\"chunkId\":\"file-a:7\",\"textContent\":\"log4j evidence\"}]");
+        result.setReferenceMappingJson("{\"1\":\"file-a\"}");
+        result.setTraceJson("[]");
+
+        when(runRepository.findById(10L)).thenReturn(Optional.of(run));
+        when(resultRepository.findByRunIdOrderByIdAsc(10L)).thenReturn(List.of(result));
+        when(caseRepository.findAllById(List.of(1L))).thenReturn(List.of(evalCase));
+
+        Map<String, Object> export = service.exportRunResults(10L);
+
+        assertEquals(10L, ((Map<?, ?>) export.get("run")).get("id"));
+        List<?> cases = (List<?>) export.get("cases");
+        Map<?, ?> exportedCase = (Map<?, ?>) cases.get(0);
+        assertEquals(evalCase.getQuestion(), exportedCase.get("question"));
+        assertEquals("fixed in 2.15.0 (source#1: a.txt)", exportedCase.get("answer"));
+        assertEquals(List.of("file-a:7"), exportedCase.get("expectedEvidence"));
+        assertEquals(List.of("2.15.0"), exportedCase.get("expectedFixedVersions"));
+        assertEquals(Map.of("1", "file-a"), exportedCase.get("referenceMapping"));
+    }
+
+    @Test
+    void recordDeepEvalMetricsUpdatesRunAndCaseScores() {
+        RagEvalRun run = new RagEvalRun();
+        run.setId(10L);
+        RagEvalCaseResult result = new RagEvalCaseResult();
+        result.setId(100L);
+        result.setRunId(10L);
+        result.setCaseId(1L);
+
+        when(runRepository.findById(10L)).thenReturn(Optional.of(run));
+        when(resultRepository.findByRunIdOrderByIdAsc(10L)).thenReturn(List.of(result));
+        when(resultRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(runRepository.save(any(RagEvalRun.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        RagEvalRun updated = service.recordDeepEvalMetrics(10L, Map.of(
+                "summary", Map.of(
+                        "averageFaithfulness", 0.91d,
+                        "averageCitationAccuracy", 0.82d,
+                        "averageFixedVersionAccuracy", 1.0d,
+                        "qualityGatePassed", true
+                ),
+                "cases", List.of(Map.of(
+                        "caseId", 1L,
+                        "faithfulnessScore", 0.91d,
+                        "citationAccuracy", 0.82d,
+                        "fixedVersionAccuracy", 1.0d,
+                        "matchedEvidence", List.of("file-a:7")
+                ))
+        ));
+
+        assertEquals(0.91d, updated.getAverageFaithfulness());
+        assertEquals(0.82d, updated.getAverageCitationAccuracy());
+        assertEquals(1.0d, updated.getAverageFixedVersionAccuracy());
+        assertTrue(updated.isQualityGatePassed());
+        assertEquals(0.91d, result.getFaithfulnessScore());
+        assertEquals(0.82d, result.getCitationAccuracy());
+        assertEquals(1.0d, result.getFixedVersionAccuracy());
+        assertTrue(result.getMetricDetailsJson().contains("file-a:7"));
     }
 
     @Test
@@ -128,6 +229,7 @@ class RagEvalServiceTest {
                 List.of(),
                 Map.of(1, "file-a")
         ));
+        when(deepSeekClient.completeAnswer(any(), any(), any())).thenReturn(Optional.of("log4j-core is affected"));
 
         service.runEnabledCases("alice", "");
 

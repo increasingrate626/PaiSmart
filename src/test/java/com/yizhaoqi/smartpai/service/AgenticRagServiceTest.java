@@ -24,8 +24,10 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -66,6 +68,16 @@ class AgenticRagServiceTest {
         aiProperties.getAgentic().setMaxContextChars(220);
         when(scaEntityExtractionService.extract(anyString())).thenReturn(new AgentEntities());
         service = new AgenticRagService(searchService, graphSearchService, deepSeekClient, aiProperties, scaEntityExtractionService);
+    }
+
+    @Test
+    void aiPropertiesUseProductionSafeAgenticRecallDefaults() {
+        AiProperties defaults = new AiProperties();
+
+        assertEquals(2, defaults.getAgentic().getMaxSubQueries());
+        assertEquals(8, defaults.getAgentic().getFirstRoundTopK());
+        assertEquals(5, defaults.getAgentic().getRewriteRoundTopK());
+        assertEquals(5, defaults.getAgentic().getGraph().getTopK());
     }
 
     @Test
@@ -309,13 +321,13 @@ class AgenticRagServiceTest {
         when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
         when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
         when(searchService.searchWithPermission("log4j cve", "alice", 12)).thenReturn(List.of(textResult));
-        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(8))).thenReturn(List.of(graphResult));
+        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(5))).thenReturn(List.of(graphResult));
 
         AgenticRagResult ragResult = service.run(new AgenticRagRequest("alice", "log4j 2.14.1 受影响吗", List.of(), "session-1", "trace-123"));
 
         assertTrue(ragResult.getFinalContext().contains("[GRAPH#1] log4j-core 2.14.1 --AFFECTED_BY--> CVE-2021-44228"));
         assertTrue(ragResult.getReferenceMapping().containsValue("file-graph"));
-        verify(graphSearchService).searchWithPermission(any(), eq("alice"), eq(8));
+        verify(graphSearchService).searchWithPermission(any(), eq("alice"), eq(5));
     }
 
     @Test
@@ -349,7 +361,7 @@ class AgenticRagServiceTest {
         when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
         when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
         when(searchService.searchWithPermission("log4j cve", "alice", 12)).thenReturn(List.of(result("file-a", 1, "text evidence", 0.8, "a.txt")));
-        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(8))).thenThrow(new RuntimeException("graph db down"));
+        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(5))).thenThrow(new RuntimeException("graph db down"));
 
         AgenticRagResult ragResult = service.run(new AgenticRagRequest("alice", "log4j cve", List.of(), "session-1", "trace-123"));
 
@@ -376,7 +388,7 @@ class AgenticRagServiceTest {
         when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
         when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
         when(searchService.searchWithPermission("log4j cve", "alice", 12)).thenReturn(List.of(docResult));
-        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(8))).thenReturn(List.of(graphResult));
+        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(5))).thenReturn(List.of(graphResult));
 
         service.run(new AgenticRagRequest("alice", "log4j cve", List.of(), "session-1", "trace-123"));
 
@@ -602,14 +614,14 @@ class AgenticRagServiceTest {
         when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
         when(searchService.searchWithPermission("log4j-core 2.14.1 affected", "alice", 12))
                 .thenReturn(List.of(result("file-a", 1, "text evidence", 0.8, "a.txt")));
-        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(8)))
+        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(5)))
                 .thenReturn(List.of(graphResult("file-graph", 2, "log4j-core --AFFECTED_BY--> CVE-2021-44228")));
 
         AgenticRagResult ragResult = service.run(new AgenticRagRequest("alice", "log4j-core 2.14.1 affected?", List.of(), "session-1", "trace-123"));
 
         assertTrue(ragResult.getFinalContext().contains("[GRAPH#1] log4j-core --AFFECTED_BY--> CVE-2021-44228"));
         ArgumentCaptor<GraphSearchRequest> captor = ArgumentCaptor.forClass(GraphSearchRequest.class);
-        verify(graphSearchService).searchWithPermission(captor.capture(), eq("alice"), eq(8));
+        verify(graphSearchService).searchWithPermission(captor.capture(), eq("alice"), eq(5));
         assertEquals(List.of("log4j-core"), captor.getValue().getEntities().getComponents());
         assertEquals(List.of("2.14.1"), captor.getValue().getEntities().getVersions());
         assertEquals(List.of("CVE-2021-44228"), captor.getValue().getEntities().getCves());
@@ -636,12 +648,12 @@ class AgenticRagServiceTest {
         when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
         when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
         when(searchService.searchWithPermission("component impact", "alice", 12)).thenReturn(List.of());
-        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(8))).thenReturn(List.of());
+        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(5))).thenReturn(List.of());
 
         service.run(request("alice", "component impact"));
 
         ArgumentCaptor<GraphSearchRequest> captor = ArgumentCaptor.forClass(GraphSearchRequest.class);
-        verify(graphSearchService).searchWithPermission(captor.capture(), eq("alice"), eq(8));
+        verify(graphSearchService).searchWithPermission(captor.capture(), eq("alice"), eq(5));
         AgentEntities merged = captor.getValue().getEntities();
         assertEquals(List.of("log4j-core", "spring-core"), merged.getComponents());
         assertEquals(List.of("5.3.0"), merged.getVersions());
@@ -657,14 +669,14 @@ class AgenticRagServiceTest {
         when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.empty());
         when(searchService.searchWithPermission("log4j cve", "alice", 12))
                 .thenReturn(List.of(result("file-a", 1, "fallback text evidence", 0.8, "a.txt")));
-        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(8)))
+        when(graphSearchService.searchWithPermission(any(), eq("alice"), eq(5)))
                 .thenReturn(List.of(graphResult("file-graph", 2, "CVE-2021-44228 --FIXED_IN--> 2.15.0")));
 
         AgenticRagResult ragResult = service.run(request("alice", "log4j cve"));
 
         assertTrue(ragResult.getFinalContext().contains("fallback text evidence"));
         assertTrue(ragResult.getFinalContext().contains("[GRAPH#1] CVE-2021-44228 --FIXED_IN--> 2.15.0"));
-        verify(graphSearchService).searchWithPermission(any(), eq("alice"), eq(8));
+        verify(graphSearchService).searchWithPermission(any(), eq("alice"), eq(5));
         verify(deepSeekClient, never()).completeJson(anyString(), anyString(), eq(EvidenceAssessment.class));
     }
 
@@ -681,8 +693,163 @@ class AgenticRagServiceTest {
         verify(graphSearchService, never()).searchWithPermission(any(), anyString(), anyInt());
     }
 
+    @Test
+    void finalContextDefaultsToSixEvidenceWhenBudgetAllowsMore() {
+        aiProperties.getAgentic().setMaxContextChars(5000);
+        AgentPlan plan = plan("component evidence limit");
+        EvidenceAssessment assessment = new EvidenceAssessment();
+        assessment.setSufficient(true);
+        List<SearchResult> results = IntStream.rangeClosed(1, 8)
+                .mapToObj(i -> result("file-" + i, i, "evidence-" + i, 1.0d - (i * 0.01d), "file-" + i + ".txt"))
+                .toList();
+
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
+        when(searchService.searchWithPermission("component evidence limit", "alice", 12)).thenReturn(results);
+
+        AgenticRagResult ragResult = service.run(request("alice", "component evidence limit"));
+
+        assertEquals(6, ragResult.getSelectedEvidence().size());
+        assertTrue(ragResult.getFinalContext().contains("[6] (file-6.txt | MD5:file-6)"));
+        assertFalse(ragResult.getFinalContext().contains("[7] (file-7.txt | MD5:file-7)"));
+        assertEquals(Map.of(1, "file-1", 2, "file-2", 3, "file-3", 4, "file-4", 5, "file-5", 6, "file-6"),
+                ragResult.getReferenceMapping());
+    }
+
+    @Test
+    void finalEvidenceLimitCanBeConfiguredToThree() {
+        aiProperties.getAgentic().setMaxContextChars(5000);
+        aiProperties.getAgentic().setMaxFinalEvidenceCount(3);
+        AgentPlan plan = plan("configured final limit");
+        EvidenceAssessment assessment = new EvidenceAssessment();
+        assessment.setSufficient(true);
+        List<SearchResult> results = IntStream.rangeClosed(1, 5)
+                .mapToObj(i -> result("file-" + i, i, "configured-evidence-" + i, 1.0d - (i * 0.01d), "file-" + i + ".txt"))
+                .toList();
+
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
+        when(searchService.searchWithPermission("configured final limit", "alice", 12)).thenReturn(results);
+
+        AgenticRagResult ragResult = service.run(request("alice", "configured final limit"));
+
+        assertEquals(3, ragResult.getSelectedEvidence().size());
+        assertTrue(ragResult.getFinalContext().contains("[3] (file-3.txt | MD5:file-3)"));
+        assertFalse(ragResult.getFinalContext().contains("[4] (file-4.txt | MD5:file-4)"));
+        assertEquals(Map.of(1, "file-1", 2, "file-2", 3, "file-3"), ragResult.getReferenceMapping());
+    }
+
+    @Test
+    void evaluatorPromptUsesConfiguredEvidenceLimit() {
+        aiProperties.getAgentic().setMaxContextChars(5000);
+        AgentPlan plan = plan("evaluator evidence limit");
+        EvidenceAssessment assessment = new EvidenceAssessment();
+        assessment.setSufficient(true);
+        List<SearchResult> results = IntStream.rangeClosed(1, 30)
+                .mapToObj(i -> result("file-" + i, i, "evaluator-evidence-" + i, 1.0d - (i * 0.001d), "file-" + i + ".txt"))
+                .toList();
+
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
+        when(searchService.searchWithPermission("evaluator evidence limit", "alice", 12)).thenReturn(results);
+
+        service.run(request("alice", "evaluator evidence limit"));
+
+        ArgumentCaptor<String> userPromptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(deepSeekClient).completeJson(anyString(), userPromptCaptor.capture(), eq(EvidenceAssessment.class));
+        String evaluatorPrompt = userPromptCaptor.getValue();
+        assertTrue(evaluatorPrompt.contains("file-24:24"));
+        assertFalse(evaluatorPrompt.contains("file-25:25"));
+    }
+
+    @Test
+    void evaluatorPromptUsesConfiguredCharacterBudget() {
+        aiProperties.getAgentic().setMaxEvaluatorPromptChars(360);
+        AgentPlan plan = plan("evaluator prompt budget");
+        EvidenceAssessment assessment = new EvidenceAssessment();
+        assessment.setSufficient(true);
+        List<SearchResult> results = IntStream.rangeClosed(1, 10)
+                .mapToObj(i -> result("file-" + i, i, "long-evaluator-evidence-" + i + " " + "x".repeat(200),
+                        1.0d - (i * 0.01d), "file-" + i + ".txt"))
+                .toList();
+
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
+        when(searchService.searchWithPermission("evaluator prompt budget", "alice", 12)).thenReturn(results);
+
+        service.run(request("alice", "evaluator prompt budget"));
+
+        ArgumentCaptor<String> userPromptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(deepSeekClient).completeJson(anyString(), userPromptCaptor.capture(), eq(EvidenceAssessment.class));
+        String evaluatorPrompt = userPromptCaptor.getValue();
+        assertTrue(evaluatorPrompt.length() <= 360);
+        assertTrue(evaluatorPrompt.contains("Question:"));
+        assertTrue(evaluatorPrompt.contains("Intent:"));
+        assertTrue(evaluatorPrompt.contains("GRAPH facts:"));
+        assertTrue(evaluatorPrompt.contains("DOC excerpts:"));
+    }
+
+    @Test
+    void selectedChunkIdsAreAppliedBeforeFinalEvidenceLimit() {
+        aiProperties.getAgentic().setMaxContextChars(5000);
+        aiProperties.getAgentic().setMaxFinalEvidenceCount(3);
+        AgentPlan plan = plan("selected chunk final limit");
+        EvidenceAssessment assessment = new EvidenceAssessment();
+        assessment.setSufficient(true);
+        assessment.setSelectedChunkIds(List.of("file-5:5", "file-4:4", "file-3:3", "file-2:2", "file-1:1"));
+        List<SearchResult> results = IntStream.rangeClosed(1, 5)
+                .mapToObj(i -> result("file-" + i, i, "selected-evidence-" + i, 1.0d - (i * 0.01d), "file-" + i + ".txt"))
+                .toList();
+
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
+        when(searchService.searchWithPermission("selected chunk final limit", "alice", 12)).thenReturn(results);
+
+        AgenticRagResult ragResult = service.run(request("alice", "selected chunk final limit"));
+
+        assertEquals(3, ragResult.getSelectedEvidence().size());
+        assertEquals(List.of("file-5", "file-4", "file-3"),
+                ragResult.getSelectedEvidence().stream().map(SearchResult::getFileMd5).toList());
+        assertEquals(Map.of(1, "file-5", 2, "file-4", 3, "file-3"), ragResult.getReferenceMapping());
+    }
+
+    @Test
+    void nonPositiveLimitsFallBackToSafeMinimums() {
+        aiProperties.getAgentic().setMaxContextChars(5000);
+        aiProperties.getAgentic().setMaxFinalEvidenceCount(0);
+        aiProperties.getAgentic().setMaxEvaluatorEvidenceCount(0);
+        aiProperties.getAgentic().setMaxEvaluatorPromptChars(0);
+        AgentPlan plan = plan("safe minimum limits");
+        EvidenceAssessment assessment = new EvidenceAssessment();
+        assessment.setSufficient(true);
+        List<SearchResult> results = IntStream.rangeClosed(1, 3)
+                .mapToObj(i -> result("file-" + i, i, "safe-minimum-evidence-" + i, 1.0d - (i * 0.01d), "file-" + i + ".txt"))
+                .toList();
+
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(AgentPlan.class))).thenReturn(Optional.of(plan));
+        when(deepSeekClient.completeJson(anyString(), anyString(), eq(EvidenceAssessment.class))).thenReturn(Optional.of(assessment));
+        when(searchService.searchWithPermission("safe minimum limits", "alice", 12)).thenReturn(results);
+
+        AgenticRagResult ragResult = service.run(request("alice", "safe minimum limits"));
+
+        ArgumentCaptor<String> userPromptCaptor = ArgumentCaptor.forClass(String.class);
+        verify(deepSeekClient).completeJson(anyString(), userPromptCaptor.capture(), eq(EvidenceAssessment.class));
+        assertEquals(1, ragResult.getSelectedEvidence().size());
+        assertTrue(userPromptCaptor.getValue().contains("Question:"));
+        assertTrue(userPromptCaptor.getValue().contains("Intent:"));
+        assertTrue(userPromptCaptor.getValue().contains("file-1:1"));
+        assertFalse(userPromptCaptor.getValue().contains("file-2:2"));
+    }
+
     private AgenticRagRequest request(String userId, String message) {
         return new AgenticRagRequest(userId, message, List.of(), "session-1");
+    }
+
+    private AgentPlan plan(String query) {
+        AgentPlan plan = new AgentPlan();
+        plan.setIntent("answer");
+        plan.setSubQueries(List.of(query));
+        return plan;
     }
 
     private GraphSearchResult graphResult(String fileMd5, int chunkId, String path) {

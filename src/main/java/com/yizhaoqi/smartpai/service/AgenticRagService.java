@@ -155,7 +155,17 @@ public class AgenticRagService {
                                                         List<SearchResult> evidence,
                                                         List<AgentTraceStep> trace,
                                                         AiProperties.Agentic cfg) {
-        String userPrompt = buildEvaluatorUserPrompt(request, plan, deduplicateAndSort(evidence));
+        List<SearchResult> evaluatorEvidence = limitEvidence(
+                deduplicateAndSort(evidence),
+                safePositive(cfg.getMaxEvaluatorEvidenceCount(), 1)
+        );
+        String userPrompt = buildEvaluatorUserPrompt(
+                request,
+                plan,
+                evaluatorEvidence,
+                safePositive(cfg.getMaxEvaluatorPromptChars(), 6000)
+        );
+        auditEvaluatorPrompt(request, evaluatorEvidence.size(), userPrompt.length());
         JsonStageResult<EvidenceAssessment> result = callWithTimeout(
                 () -> deepSeekClient.completeJson(buildEvaluatorSystemPrompt(), userPrompt, EvidenceAssessment.class),
                 cfg.getEvaluatorTimeoutMs(),
@@ -294,14 +304,20 @@ public class AgenticRagService {
                                          EvidenceAssessment assessment,
                                          List<AgentTraceStep> trace,
                                          int budget) {
-        List<SearchResult> selected = selectEvidence(rawEvidence, assessment);
-        ContextBuildResult context = buildContext(selected, budget);
+        List<SearchResult> deduped = deduplicateAndSort(rawEvidence);
+        List<SearchResult> selected = selectEvidence(deduped, assessment);
+        ContextBuildResult context = buildContext(
+                selected,
+                budget,
+                safePositive(aiProperties.getAgentic().getMaxFinalEvidenceCount(), 1),
+                evidenceCount(rawEvidence),
+                deduped.size()
+        );
         auditFinalContext(request, context);
         return new AgenticRagResult(context.context, context.includedEvidence, trace, context.referenceMapping);
     }
 
-    private List<SearchResult> selectEvidence(List<SearchResult> rawEvidence, EvidenceAssessment assessment) {
-        List<SearchResult> deduped = deduplicateAndSort(rawEvidence);
+    private List<SearchResult> selectEvidence(List<SearchResult> deduped, EvidenceAssessment assessment) {
         if (assessment == null || assessment.getSelectedChunkIds() == null || assessment.getSelectedChunkIds().isEmpty()) {
             return deduped;
         }
@@ -321,6 +337,12 @@ public class AgenticRagService {
         return selected.isEmpty() ? deduped : selected;
     }
 
+    private List<SearchResult> limitEvidence(List<SearchResult> evidence, int maxCount) {
+        return evidence.stream()
+                .limit(maxCount)
+                .toList();
+    }
+
     private List<SearchResult> deduplicateAndSort(List<SearchResult> rawEvidence) {
         Map<String, SearchResult> bestByChunk = new LinkedHashMap<>();
         for (SearchResult result : rawEvidence) {
@@ -335,13 +357,20 @@ public class AgenticRagService {
                 .toList();
     }
 
-    private ContextBuildResult buildContext(List<SearchResult> selected, int budget) {
+    private ContextBuildResult buildContext(List<SearchResult> selected,
+                                            int budget,
+                                            int maxEvidenceCount,
+                                            int rawEvidenceCount,
+                                            int dedupedEvidenceCount) {
         StringBuilder context = new StringBuilder();
         List<SearchResult> includedEvidence = new ArrayList<>();
         Map<Integer, String> referenceMapping = new LinkedHashMap<>();
 
         int referenceNumber = 1;
         for (SearchResult result : selected) {
+            if (includedEvidence.size() >= maxEvidenceCount) {
+                break;
+            }
             String fileName = result.getFileName() != null ? result.getFileName() : "unknown";
             String fileMd5 = result.getFileMd5() != null ? result.getFileMd5() : "";
             String snippet = result.getTextContent() != null ? result.getTextContent() : "";
@@ -370,7 +399,7 @@ public class AgenticRagService {
             referenceNumber++;
         }
 
-        return new ContextBuildResult(context.toString(), includedEvidence, referenceMapping);
+        return new ContextBuildResult(context.toString(), includedEvidence, referenceMapping, rawEvidenceCount, dedupedEvidenceCount);
     }
 
     private <T> JsonStageResult<T> callWithTimeout(JsonCall<T> call,
@@ -445,7 +474,10 @@ public class AgenticRagService {
                 """;
     }
 
-    private String buildEvaluatorUserPrompt(AgenticRagRequest request, AgentPlan plan, List<SearchResult> evidence) {
+    private String buildEvaluatorUserPrompt(AgenticRagRequest request,
+                                            AgentPlan plan,
+                                            List<SearchResult> evidence,
+                                            int maxPromptChars) {
         StringBuilder builder = new StringBuilder();
         builder.append("Question:\n").append(request.getMessage()).append("\n\n");
         builder.append("Intent:\n").append(plan.getIntent()).append("\n\n");
@@ -455,25 +487,48 @@ public class AgenticRagService {
         List<SearchResult> docEvidence = evidence.stream()
                 .filter(result -> !isGraphEvidence(result))
                 .toList();
-        appendEvidenceSection(builder, "GRAPH facts", graphEvidence);
+        appendEvidenceSection(builder, "GRAPH facts", graphEvidence, maxPromptChars);
         builder.append("\n");
-        appendEvidenceSection(builder, "DOC excerpts", docEvidence);
-        return builder.toString();
+        appendEvidenceSection(builder, "DOC excerpts", docEvidence, maxPromptChars);
+        return truncate(builder.toString(), maxPromptChars);
     }
 
-    private void appendEvidenceSection(StringBuilder builder, String title, List<SearchResult> evidence) {
+    private void appendEvidenceSection(StringBuilder builder, String title, List<SearchResult> evidence, int maxPromptChars) {
         builder.append(title).append(":\n");
         if (evidence.isEmpty()) {
-            builder.append("- none\n");
+            appendWithinBudget(builder, "- none\n", maxPromptChars);
             return;
         }
         for (SearchResult result : evidence) {
-            builder.append("- id=").append(chunkKey(result))
-                    .append(", score=").append(result.getScore())
-                    .append(", file=").append(result.getFileName())
-                    .append(", text=").append(summarize(result.getTextContent()))
-                    .append("\n");
+            String line = "- id=" + chunkKey(result)
+                    + ", score=" + result.getScore()
+                    + ", file=" + result.getFileName()
+                    + ", text=" + summarize(result.getTextContent())
+                    + "\n";
+            if (!appendWithinBudget(builder, line, maxPromptChars)) {
+                return;
+            }
         }
+    }
+
+    private boolean appendWithinBudget(StringBuilder builder, String text, int maxChars) {
+        if (builder.length() >= maxChars) {
+            return false;
+        }
+        int remaining = maxChars - builder.length();
+        if (text.length() <= remaining) {
+            builder.append(text);
+            return true;
+        }
+        builder.append(text, 0, Math.max(0, remaining));
+        return false;
+    }
+
+    private String truncate(String text, int maxChars) {
+        if (text == null || text.length() <= maxChars) {
+            return text;
+        }
+        return text.substring(0, Math.max(0, maxChars));
     }
 
     private boolean isGraphEvidence(SearchResult result) {
@@ -731,6 +786,21 @@ public class AgenticRagService {
         );
     }
 
+    private void auditEvaluatorPrompt(AgenticRagRequest request, int evaluatorEvidenceCount, int promptChars) {
+        if (!aiProperties.getAgentic().isLogLlmDecisions()) {
+            return;
+        }
+        logger.info(
+                "agentic_rag_evaluator_audit traceId={} chatTraceId={} sessionId={} userId={} evaluatorEvidenceCount={} evaluatorPromptChars={}",
+                traceId(request),
+                traceId(request),
+                request.getSessionId(),
+                request.getUserId(),
+                evaluatorEvidenceCount,
+                promptChars
+        );
+    }
+
     private void auditFinalContext(AgenticRagRequest request, ContextBuildResult context) {
         if (!aiProperties.getAgentic().isLogLlmDecisions()) {
             return;
@@ -740,12 +810,15 @@ public class AgenticRagService {
                 .filter(traceId -> traceId != null && !traceId.isBlank())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         logger.info(
-                "agentic_rag_final_audit traceId={} chatTraceId={} sessionId={} userId={} contextChars={} evidenceCount={} relatedIngestionTraceIds={} referenceMapping={} contextPreview=\"{}\"",
+                "agentic_rag_final_audit traceId={} chatTraceId={} sessionId={} userId={} contextChars={} evidenceCount={} rawEvidenceCount={} dedupedEvidenceCount={} finalEvidenceCount={} relatedIngestionTraceIds={} referenceMapping={} contextPreview=\"{}\"",
                 traceId(request),
                 traceId(request),
                 request.getSessionId(),
                 request.getUserId(),
                 context.context.length(),
+                context.includedEvidence.size(),
+                context.rawEvidenceCount,
+                context.dedupedEvidenceCount,
                 context.includedEvidence.size(),
                 relatedIngestionTraceIds,
                 context.referenceMapping,
@@ -803,6 +876,10 @@ public class AgenticRagService {
         return evidence != null ? evidence.size() : 0;
     }
 
+    private int safePositive(int configuredValue, int fallbackValue) {
+        return configuredValue > 0 ? configuredValue : Math.max(1, fallbackValue);
+    }
+
     private String safeFailureReason(Exception e) {
         if (e == null) {
             return "";
@@ -827,7 +904,9 @@ public class AgenticRagService {
 
     private record ContextBuildResult(String context,
                                       List<SearchResult> includedEvidence,
-                                      Map<Integer, String> referenceMapping) {
+                                      Map<Integer, String> referenceMapping,
+                                      int rawEvidenceCount,
+                                      int dedupedEvidenceCount) {
     }
 
     private enum EntityKind {

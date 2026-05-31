@@ -142,6 +142,14 @@ ai:
     log-llm-decisions: ${PAISMART_AGENTIC_LOG_LLM_DECISIONS:false}
     log-prompt-preview-chars: ${PAISMART_AGENTIC_LOG_PROMPT_PREVIEW_CHARS:300}
     log-output-preview-chars: ${PAISMART_AGENTIC_LOG_OUTPUT_PREVIEW_CHARS:1200}
-    first-round-top-k: ${PAISMART_AGENTIC_FIRST_ROUND_TOP_K:12}
-    rewrite-round-top-k: ${PAISMART_AGENTIC_REWRITE_ROUND_TOP_K:8}
-    max-sub-queries: ${PAISMART_AGENTIC_MAX_SUB_QUERIES:4}
+    first-round-top-k: ${PAISMART_AGENTIC_FIRST_ROUND_TOP_K:8}
+    rewrite-round-top-k: ${PAISMART_AGENTIC_REWRITE_ROUND_TOP_K:5}
+    max-sub-queries: ${PAISMART_AGENTIC_MAX_SUB_QUERIES:2}
+    max-final-evidence-count: ${PAISMART_AGENTIC_MAX_FINAL_EVIDENCE_COUNT:6}
+    max-evaluator-evidence-count: ${PAISMART_AGENTIC_MAX_EVALUATOR_EVIDENCE_COUNT:24}
+    max-evaluator-prompt-chars: ${PAISMART_AGENTIC_MAX_EVALUATOR_PROMPT_CHARS:6000}
+    graph:
+      enabled: ${PAISMART_AGENTIC_GRAPH_ENABLED:true}
+      max-depth: ${PAISMART_AGENTIC_GRAPH_MAX_DEPTH:2}
+      top-k: ${PAISMART_AGENTIC_GRAPH_TOP_K:5}
+      extraction-enabled: ${PAISMART_AGENTIC_GRAPH_EXTRACTION_ENABLED:true}

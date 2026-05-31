@@ -47,11 +47,29 @@ public class RagEvalCaseResult {
     @Column(name = "failure_reason", length = 100)
     private String failureReason = "";
 
+    @Column(name = "answer", columnDefinition = "TEXT")
+    private String answer;
+
+    @Column(name = "faithfulness_score")
+    private Double faithfulnessScore;
+
+    @Column(name = "citation_accuracy")
+    private Double citationAccuracy;
+
+    @Column(name = "fixed_version_accuracy")
+    private Double fixedVersionAccuracy;
+
+    @Column(name = "metric_details_json", columnDefinition = "TEXT")
+    private String metricDetailsJson;
+
     @Column(name = "final_context", columnDefinition = "TEXT")
     private String finalContext;
 
     @Column(name = "selected_evidence_json", columnDefinition = "TEXT")
     private String selectedEvidenceJson;
+
+    @Column(name = "reference_mapping_json", columnDefinition = "TEXT")
+    private String referenceMappingJson;
 
     @Column(name = "trace_json", columnDefinition = "TEXT")
     private String traceJson;
