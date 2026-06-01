@@ -108,6 +108,7 @@ utils/        JWT, logging, password, and MinIO migration helpers
 | Service | Responsibility |
 |---|---|
 | `ChatHandler` | Orchestrates chat RAG: conversation history, Agentic RAG, DeepSeek streaming, Redis history, reference mapping |
+| `ChatIntentGuard` | Short-circuits small-talk/no-op chat inputs before Agentic RAG while forcing SCA-signal inputs to keep the RAG path |
 | `AgenticRagService` | Bounded Agentic RAG state machine: rule entity merge, planning, permissioned search, evidence evaluation, optional rewrite/research, context budgeting |
 | `HybridSearchService` | Combines vector recall, keyword matching, BM25 rescore, and permission filters |
 | `DeepSeekClient` | Streams final answers and provides non-streaming JSON completion for planner/evaluator steps |
@@ -145,17 +146,19 @@ WebSocket entrypoint: `/chat/{jwtToken}`. In frontend development this is proxie
 4. User sends plain text.
 5. `ChatHandler.processMessage()` retrieves or creates the Redis current conversation key: `user:{username}:current_conversation`.
 6. It loads recent history from `conversation:{conversationId}`.
-7. It calls `AgenticRagService.run()` with `userId`, message, history, and `sessionId`.
-8. `AgenticRagService` first extracts deterministic SCA entities from the user question, then executes a fixed, bounded state machine: `PLAN_QUERY -> SEARCH -> EVALUATE_EVIDENCE -> OPTIONAL_REWRITE_AND_RESEARCH -> FINAL_CONTEXT`.
-9. Planner/evaluator steps use `DeepSeekClient.completeJson(...)`. Planner entities are merged with rule entities, with rule entities kept first. JSON failures, timeouts, or planner failures must degrade to ordinary RAG instead of breaking chat.
-10. All retrieval must continue to call `HybridSearchService.searchWithPermission()`. Never bypass the owner/public/org-tag permission filter.
-11. When graph search is enabled and merged entities are non-empty, `AgenticRagService` calls `GraphSearchService.searchWithPermission()` and adds graph-path evidence without replacing text evidence. Planner fallback may still add graph evidence when rule entities were extracted.
-12. `AgenticRagService` merges, deduplicates, ranks, and truncates evidence within the configured context budget.
-13. It builds cited context in the form `[N] (filename | MD5:hash) snippet...` and returns `referenceMapping`.
-14. `ChatHandler` saves `sessionId -> referenceNumber -> fileMd5`.
-15. It streams DeepSeek output as `{"chunk":"..."}` messages.
-16. It sends a completion message such as `{"type":"completion","status":"finished",...}`.
-17. It updates Redis conversation history with a 7-day TTL.
+7. `ChatIntentGuard` routes short small-talk/no-op inputs such as `你好`, `谢谢`, `你是谁`, or pure punctuation to a fixed Chinese response. This short-circuit still sends `{"chunk":"..."}`, then `completion`, updates Redis history, and clears reference mappings, but it must not call `AgenticRagService` or DeepSeek streaming.
+8. If the message contains SCA signals such as CVE IDs, components, versions, SBOM, vulnerabilities, fixes, dependencies, licenses, or false-positive terms, `ChatIntentGuard` must force the normal RAG path even when the message begins with a greeting.
+9. It calls `AgenticRagService.run()` with `userId`, message, history, and `sessionId`.
+10. `AgenticRagService` first extracts deterministic SCA entities from the user question, then executes a fixed, bounded state machine: `PLAN_QUERY -> SEARCH -> EVALUATE_EVIDENCE -> OPTIONAL_REWRITE_AND_RESEARCH -> FINAL_CONTEXT`.
+11. Planner/evaluator steps use `DeepSeekClient.completeJson(...)`. Planner entities are merged with rule entities, with rule entities kept first. JSON failures, timeouts, or planner failures must degrade to ordinary RAG instead of breaking chat.
+12. All retrieval must continue to call `HybridSearchService.searchWithPermission()`. Never bypass the owner/public/org-tag permission filter.
+13. When graph search is enabled and merged entities are non-empty, `AgenticRagService` calls `GraphSearchService.searchWithPermission()` and adds graph-path evidence without replacing text evidence. Planner fallback may still add graph evidence when rule entities were extracted.
+14. `AgenticRagService` merges, deduplicates, ranks, and truncates evidence within the configured context budget.
+15. It builds cited context in the form `[N] (filename | MD5:hash) snippet...` and returns `referenceMapping`.
+16. `ChatHandler` saves `sessionId -> referenceNumber -> fileMd5`.
+17. It streams DeepSeek output as `{"chunk":"..."}` messages.
+18. It sends a completion message such as `{"type":"completion","status":"finished",...}`.
+19. It updates Redis conversation history with a 7-day TTL.
 
 Citation click-through depends on `/api/v1/documents/reference-md5?sessionId=...&referenceNumber=N`. A response can look correct while references fail if the session ID or reference numbering contract changes.
 
