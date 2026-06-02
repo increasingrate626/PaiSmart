@@ -15,15 +15,27 @@ import java.util.regex.Pattern;
 public class ScaEntityExtractionService {
 
     private static final Pattern CVE_PATTERN = Pattern.compile("\\bCVE-\\d{4}-\\d{4,}\\b", Pattern.CASE_INSENSITIVE);
-    private static final Pattern VERSION_PATTERN = Pattern.compile("(?<![A-Za-z0-9])\\d+\\.\\d+(?:\\.\\d+)+(?:[-+][A-Za-z0-9._-]+)?\\b");
+    private static final Pattern LOOSE_CVE_PATTERN = Pattern.compile("\\bcve\\s+(\\d{4})\\s+(\\d{4,})\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern VERSION_PATTERN = Pattern.compile("(?<![A-Za-z0-9])v?\\d+\\.\\d+(?:\\.\\d+)*(?:[-+][A-Za-z0-9._-]+)?\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern MAVEN_COORDINATE_PATTERN = Pattern.compile("\\b([A-Za-z][A-Za-z0-9_.-]*(?:\\.[A-Za-z0-9_.-]+)+):([A-Za-z][A-Za-z0-9_.-]*)\\b");
     private static final Pattern PURL_PATTERN = Pattern.compile("\\bpkg:([A-Za-z0-9+.-]+)/([^\\s?#]+)", Pattern.CASE_INSENSITIVE);
-    private static final Pattern PROJECT_PATTERN = Pattern.compile("(?i)(?:\\bproject\\b|\\bservice\\b|应用|项目|服务)\\s*[:：=]?\\s*([A-Za-z][A-Za-z0-9_.-]*)");
+    private static final Pattern GO_MODULE_PATTERN = Pattern.compile("\\b([A-Za-z][A-Za-z0-9-]*(?:\\.[A-Za-z0-9-]+)+/[A-Za-z0-9._/-]+)\\b");
+    private static final Pattern LOOSE_GO_MODULE_PATTERN = Pattern.compile("\\bgolang\\s+org\\s+x\\s+([A-Za-z0-9_-]+)\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PROJECT_PATTERN = Pattern.compile(
+            "(?i)(?:\\bproject\\b|\\bservice\\b|\\u5e94\\u7528|\\u9879\\u76ee|\\u670d\\u52a1)\\s*[:\\uff1a]?\\s*([A-Za-z][A-Za-z0-9_.-]*)");
     private static final Pattern COMPONENT_TOKEN_PATTERN = Pattern.compile("\\b[A-Za-z][A-Za-z0-9]*(?:[-._][A-Za-z0-9]+)+\\b");
+    private static final Pattern SINGLE_TOKEN_PATTERN = Pattern.compile("\\b[A-Za-z][A-Za-z0-9]{1,63}\\b");
 
     private static final Set<String> COMPONENT_STOP_WORDS = Set.of(
             "project", "service", "application", "version", "fixed", "affected", "impact", "impacted",
-            "question", "answer", "source", "chunk", "file", "trace", "session"
+            "question", "answer", "source", "chunk", "file", "trace", "session", "cve", "sca",
+            "yes", "no", "risk", "vulnerability", "vulnerable", "please", "is", "are", "by",
+            "and", "or", "the", "with", "from", "to"
+    );
+    private static final Set<String> SINGLE_TOKEN_COMPONENTS = Set.of(
+            "snakeyaml", "guava", "curl", "openssl", "zlib", "lodash", "minimist", "axios",
+            "express", "django", "flask", "requests", "pillow", "cryptography", "okio",
+            "xstream", "httpclient", "junit", "h2", "time"
     );
 
     public AgentEntities extract(String question) {
@@ -45,6 +57,10 @@ public class ScaEntityExtractionService {
         Matcher matcher = CVE_PATTERN.matcher(text);
         while (matcher.find()) {
             values.add(matcher.group());
+        }
+        Matcher looseMatcher = LOOSE_CVE_PATTERN.matcher(text);
+        while (looseMatcher.find()) {
+            values.add("CVE-" + looseMatcher.group(1) + "-" + looseMatcher.group(2));
         }
         return values.values();
     }
@@ -77,8 +93,22 @@ public class ScaEntityExtractionService {
         Matcher purlMatcher = PURL_PATTERN.matcher(text);
         while (purlMatcher.find()) {
             reservedSpans.add(new Span(purlMatcher.start(), purlMatcher.end()));
-            String artifact = componentFromPurlPath(purlMatcher.group(2));
-            addComponent(values, artifact);
+            addComponent(values, componentFromPurlPath(purlMatcher.group(2)));
+        }
+
+        Matcher looseGoMatcher = LOOSE_GO_MODULE_PATTERN.matcher(text);
+        while (looseGoMatcher.find()) {
+            reservedSpans.add(new Span(looseGoMatcher.start(), looseGoMatcher.end()));
+            addComponent(values, "golang.org/x/" + looseGoMatcher.group(1));
+        }
+
+        Matcher goModuleMatcher = GO_MODULE_PATTERN.matcher(text);
+        while (goModuleMatcher.find()) {
+            if (overlapsAny(goModuleMatcher.start(), goModuleMatcher.end(), reservedSpans)) {
+                continue;
+            }
+            reservedSpans.add(new Span(goModuleMatcher.start(), goModuleMatcher.end()));
+            addComponent(values, goModuleMatcher.group());
         }
 
         Matcher mavenMatcher = MAVEN_COORDINATE_PATTERN.matcher(text);
@@ -95,7 +125,50 @@ public class ScaEntityExtractionService {
             }
             addComponent(values, tokenMatcher.group());
         }
+
+        addLooseComponentAliases(text, values);
+        addSingleTokenComponents(text, reservedSpans, values);
         return values.values();
+    }
+
+    private void addLooseComponentAliases(String text, OrderedValues values) {
+        String lower = text.toLowerCase(Locale.ROOT);
+        if (lower.contains("commons text") || lower.contains("commons-text")) {
+            addComponent(values, "commons-text");
+        }
+        if (lower.contains("tomcat embed core") || lower.contains("tomcat-embed-core")) {
+            addComponent(values, "tomcat-embed-core");
+        }
+        if (lower.contains("hibernate validator") || lower.contains("hibernate-validator")) {
+            addComponent(values, "hibernate-validator");
+        }
+    }
+
+    private void addSingleTokenComponents(String text, List<Span> reservedSpans, OrderedValues values) {
+        if (!hasScaSignal(text)) {
+            return;
+        }
+        Matcher singleTokenMatcher = SINGLE_TOKEN_PATTERN.matcher(text);
+        while (singleTokenMatcher.find()) {
+            if (overlapsAny(singleTokenMatcher.start(), singleTokenMatcher.end(), reservedSpans)) {
+                continue;
+            }
+            String token = singleTokenMatcher.group().toLowerCase(Locale.ROOT);
+            if (SINGLE_TOKEN_COMPONENTS.contains(token)) {
+                addComponent(values, token);
+            }
+        }
+    }
+
+    private boolean hasScaSignal(String text) {
+        String lower = text.toLowerCase(Locale.ROOT);
+        return CVE_PATTERN.matcher(text).find()
+                || LOOSE_CVE_PATTERN.matcher(text).find()
+                || lower.contains("sca")
+                || lower.contains("vulnerability")
+                || lower.contains("vulnerable")
+                || lower.contains("fixed version")
+                || lower.contains("sbom");
     }
 
     private String componentFromPurlPath(String path) {

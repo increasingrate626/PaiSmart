@@ -698,5 +698,705 @@
         "textContent": "SCA ?????requests 2.30.0 ?? CVE-2023-32681 ??????? 2.31.0 ?????????????? poetry.lock?Pipfile.lock ? requirements lock?"
       }
     ]
+  },
+  {
+    "fileMd5": "d4b3d7ff00838c4ec7e879ba48459297",
+    "fileName": "eval-grpc-java-cve-2023-32731.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-grpc-java-cve-2023-32731",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: grpc-java 1.53.0 is affected by CVE-2023-32731. Fixed version: 1.53.1. Check Maven or Gradle dependency tree for grpc-java, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "ae30c6ce6ba0e2a1497bc106d56b7142",
+    "fileName": "eval-protobuf-java-cve-2022-3171.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-protobuf-java-cve-2022-3171",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: protobuf-java 3.21.12 is affected by CVE-2022-3171. Fixed version: 3.21.7. Check Maven or Gradle dependency tree for protobuf-java, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "15142362900eec5fda1a5b1ea92939ba",
+    "fileName": "eval-commons-compress-cve-2024-26308.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-commons-compress-cve-2024-26308",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: commons-compress 1.21 is affected by CVE-2024-26308. Fixed version: 1.26.0. Check Maven or Gradle dependency tree for commons-compress, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "897acf42598d8e84ae4aed039e587841",
+    "fileName": "eval-commons-fileupload-cve-2023-24998.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-commons-fileupload-cve-2023-24998",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: commons-fileupload 1.4 is affected by CVE-2023-24998. Fixed version: 1.5. Check Maven or Gradle dependency tree for commons-fileupload, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "2bda490c6b115041769528cceaa9f1c9",
+    "fileName": "eval-jetty-server-cve-2023-26048.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-jetty-server-cve-2023-26048",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: jetty-server 9.4.50.v20221201 is affected by CVE-2023-26048. Fixed version: 9.4.51.v20230217. Check Maven or Gradle dependency tree for jetty-server, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "df7d6979c96b656a4480d94d63f2496c",
+    "fileName": "eval-jetty-http-cve-2023-26049.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-jetty-http-cve-2023-26049",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: jetty-http 10.0.13 is affected by CVE-2023-26049. Fixed version: 10.0.14. Check Maven or Gradle dependency tree for jetty-http, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "bcf72781aad6341222f093ad66eaa3e2",
+    "fileName": "eval-undertow-core-cve-2022-4492.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-undertow-core-cve-2022-4492",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: undertow-core 2.2.19.Final is affected by CVE-2022-4492. Fixed version: 2.2.20.Final. Check Maven or Gradle dependency tree for undertow-core, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "a3eb5baa2a6aaf8572a5abc1bdb25496",
+    "fileName": "eval-quarkus-resteasy-cve-2023-4853.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-quarkus-resteasy-cve-2023-4853",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: quarkus-resteasy 2.13.3.Final is affected by CVE-2023-4853. Fixed version: 2.16.11.Final. Check Maven or Gradle dependency tree for quarkus-resteasy, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "08e404618e0602f327a4a92f6e753e32",
+    "fileName": "eval-resteasy-core-cve-2023-0482.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-resteasy-core-cve-2023-0482",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: resteasy-core 4.7.6.Final is affected by CVE-2023-0482. Fixed version: 4.7.7.Final. Check Maven or Gradle dependency tree for resteasy-core, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "78c1a95478d1df2459bee734c2c6559e",
+    "fileName": "eval-vertx-web-cve-2023-24815.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-vertx-web-cve-2023-24815",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: vertx-web 4.3.7 is affected by CVE-2023-24815. Fixed version: 4.3.8. Check Maven or Gradle dependency tree for vertx-web, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "ed9a3125073515895d2888bc07900cd5",
+    "fileName": "eval-fastjson-cve-2022-25845.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-fastjson-cve-2022-25845",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: fastjson 1.2.80 is affected by CVE-2022-25845. Fixed version: 1.2.83. Check Maven or Gradle dependency tree for fastjson, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "96304e1c65c257f1ef3014ef6487b42e",
+    "fileName": "eval-dom4j-cve-2020-10683.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-dom4j-cve-2020-10683",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: dom4j 2.1.3 is affected by CVE-2020-10683. Fixed version: 2.1.4. Check Maven or Gradle dependency tree for dom4j, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "89cbeb21b79ec5b8c5e17eda93d4cb07",
+    "fileName": "eval-xercesimpl-cve-2022-23437.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-xercesimpl-cve-2022-23437",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: xercesImpl 2.12.0 is affected by CVE-2022-23437. Fixed version: 2.12.2. Check Maven or Gradle dependency tree for xercesImpl, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "89474d3fa2e11249b1234e5a927aa642",
+    "fileName": "eval-xmlunit-core-cve-2024-31573.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-xmlunit-core-cve-2024-31573",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: xmlunit-core 2.9.0 is affected by CVE-2024-31573. Fixed version: 2.10.0. Check Maven or Gradle dependency tree for xmlunit-core, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "ed17bde61e0ee48a0dfbf7f574678da0",
+    "fileName": "eval-jsoup-cve-2021-37714.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-jsoup-cve-2021-37714",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: jsoup 1.14.2 is affected by CVE-2021-37714. Fixed version: 1.14.3. Check Maven or Gradle dependency tree for jsoup, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "b0b98712a61890418041926a078a2125",
+    "fileName": "eval-netty-handler-cve-2023-34462.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-netty-handler-cve-2023-34462",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: netty-handler 4.1.86.Final is affected by CVE-2023-34462. Fixed version: 4.1.94.Final. Check Maven or Gradle dependency tree for netty-handler, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "e6fbcfe4908662e33051267a5366e904",
+    "fileName": "eval-netty-codec-cve-2021-43797.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-netty-codec-cve-2021-43797",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: netty-codec 4.1.68.Final is affected by CVE-2021-43797. Fixed version: 4.1.71.Final. Check Maven or Gradle dependency tree for netty-codec, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "f4be119e1c4d89c66011a06d4dc0035b",
+    "fileName": "eval-okhttp-cve-2021-0341.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-okhttp-cve-2021-0341",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: okhttp 4.9.2 is affected by CVE-2021-0341. Fixed version: 4.9.3. Check Maven or Gradle dependency tree for okhttp, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "2d2f59324d02a7dfa268b23f2cf9e02d",
+    "fileName": "eval-spring-cloud-gateway-server-cve-2022-22947.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-spring-cloud-gateway-server-cve-2022-22947",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: spring-cloud-gateway-server 3.1.0 is affected by CVE-2022-22947. Fixed version: 3.1.1. Check Maven or Gradle dependency tree for spring-cloud-gateway-server, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "5db4367556ff6e9d87c993349342df26",
+    "fileName": "eval-spring-expression-cve-2023-20861.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-spring-expression-cve-2023-20861",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: spring-expression 5.3.19 is affected by CVE-2023-20861. Fixed version: 5.3.26. Check Maven or Gradle dependency tree for spring-expression, then pin the fixed version."
+      }
+    ]
+  },
+  {
+    "fileMd5": "c6cf4ff1321e6570a23299226cdfcbc7",
+    "fileName": "eval-rails-cve-2023-22795.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-rails-cve-2023-22795",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: rails 7.0.3 is affected by CVE-2023-22795. Fixed version: 7.0.4.1. Check Gemfile.lock for rails, then run bundle update rails."
+      }
+    ]
+  },
+  {
+    "fileMd5": "fe8ef1d6ba87574f57185c4abfadcf4d",
+    "fileName": "eval-rack-cve-2022-30123.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-rack-cve-2022-30123",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: rack 2.2.3 is affected by CVE-2022-30123. Fixed version: 2.2.3.1. Check Gemfile.lock for rack, then run bundle update rack."
+      }
+    ]
+  },
+  {
+    "fileMd5": "b6d7eb9baffb62a29dd6b8566adf1446",
+    "fileName": "eval-sidekiq-cve-2023-26141.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-sidekiq-cve-2023-26141",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: sidekiq 6.5.6 is affected by CVE-2023-26141. Fixed version: 6.5.8. Check Gemfile.lock for sidekiq, then run bundle update sidekiq."
+      }
+    ]
+  },
+  {
+    "fileMd5": "231867799d09c14de1a3edbe732a7b6d",
+    "fileName": "eval-nokogiri-cve-2022-2309.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-nokogiri-cve-2022-2309",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: nokogiri 1.13.6 is affected by CVE-2022-2309. Fixed version: 1.13.8. Check Gemfile.lock for nokogiri, then run bundle update nokogiri."
+      }
+    ]
+  },
+  {
+    "fileMd5": "f2c33b30f9db58a094b888037abebbd3",
+    "fileName": "eval-sinatra-cve-2022-29970.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-sinatra-cve-2022-29970",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: sinatra 2.2.0 is affected by CVE-2022-29970. Fixed version: 2.2.3. Check Gemfile.lock for sinatra, then run bundle update sinatra."
+      }
+    ]
+  },
+  {
+    "fileMd5": "55c0c23edc23b958c987fa8b54145b16",
+    "fileName": "eval-next-cve-2024-34351.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-next-cve-2024-34351",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: next 13.4.0 is affected by CVE-2024-34351. Fixed version: 14.1.1. Check package-lock, pnpm-lock, or yarn.lock for next, then update overrides if transitive."
+      }
+    ]
+  },
+  {
+    "fileMd5": "d794b1d54bbf7971f835dbc22d9791b3",
+    "fileName": "eval-react-scripts-cve-2022-25912.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-react-scripts-cve-2022-25912",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: react-scripts 5.0.0 is affected by CVE-2022-25912. Fixed version: 5.0.1. Check package-lock, pnpm-lock, or yarn.lock for react-scripts, then update overrides if transitive."
+      }
+    ]
+  },
+  {
+    "fileMd5": "80447c67a72267172c7fd9bfcd18370a",
+    "fileName": "eval-vite-cve-2023-34092.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-vite-cve-2023-34092",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: vite 4.3.8 is affected by CVE-2023-34092. Fixed version: 4.3.9. Check package-lock, pnpm-lock, or yarn.lock for vite, then update overrides if transitive."
+      }
+    ]
+  },
+  {
+    "fileMd5": "0618722f9106c15dac090a85c521c85b",
+    "fileName": "eval-rollup-cve-2023-2794.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-rollup-cve-2023-2794",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: rollup 3.20.0 is affected by CVE-2023-2794. Fixed version: 3.21.0. Check package-lock, pnpm-lock, or yarn.lock for rollup, then update overrides if transitive."
+      }
+    ]
+  },
+  {
+    "fileMd5": "c90b1b32d6747fc2eae65e4efb6d69b4",
+    "fileName": "eval-postcss-cve-2023-44270.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-postcss-cve-2023-44270",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: postcss 8.4.30 is affected by CVE-2023-44270. Fixed version: 8.4.31. Check package-lock, pnpm-lock, or yarn.lock for postcss, then update overrides if transitive."
+      }
+    ]
+  },
+  {
+    "fileMd5": "982cc986f15275ae61afafaf5b5ce9cb",
+    "fileName": "eval-semver-cve-2022-25883.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-semver-cve-2022-25883",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: semver 7.5.1 is affected by CVE-2022-25883. Fixed version: 7.5.2. Check package-lock, pnpm-lock, or yarn.lock for semver, then update overrides if transitive."
+      }
+    ]
+  },
+  {
+    "fileMd5": "dce5c258a32920423a4a08d5ad1f9cff",
+    "fileName": "eval-jsonwebtoken-cve-2022-23529.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-jsonwebtoken-cve-2022-23529",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: jsonwebtoken 8.5.1 is affected by CVE-2022-23529. Fixed version: 9.0.0. Check package-lock, pnpm-lock, or yarn.lock for jsonwebtoken, then update overrides if transitive."
+      }
+    ]
+  },
+  {
+    "fileMd5": "89fce428cb7e312811b3c5cba6024221",
+    "fileName": "eval-node-forge-cve-2022-24771.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-node-forge-cve-2022-24771",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: node-forge 1.2.1 is affected by CVE-2022-24771. Fixed version: 1.3.0. Check package-lock, pnpm-lock, or yarn.lock for node-forge, then update overrides if transitive."
+      }
+    ]
+  },
+  {
+    "fileMd5": "36cf596ed1fb77d61a575f0ede87b78e",
+    "fileName": "eval-tar-cve-2021-32803.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-tar-cve-2021-32803",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: tar 6.1.6 is affected by CVE-2021-32803. Fixed version: 6.1.11. Check package-lock, pnpm-lock, or yarn.lock for tar, then update overrides if transitive."
+      }
+    ]
+  },
+  {
+    "fileMd5": "04007d402e4be30c01d25e9ace69fe19",
+    "fileName": "eval-yargs-parser-cve-2020-7608.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-yargs-parser-cve-2020-7608",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: yargs-parser 18.1.2 is affected by CVE-2020-7608. Fixed version: 18.1.3. Check package-lock, pnpm-lock, or yarn.lock for yargs-parser, then update overrides if transitive."
+      }
+    ]
+  },
+  {
+    "fileMd5": "fb946d2d9f5c453e0a39157b7f170f31",
+    "fileName": "eval-urllib3-cve-2023-43804.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-urllib3-cve-2023-43804",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: urllib3 1.26.15 is affected by CVE-2023-43804. Fixed version: 1.26.18. Check requirements, poetry.lock, or Pipfile.lock for urllib3, then regenerate the lockfile."
+      }
+    ]
+  },
+  {
+    "fileMd5": "f103cdf58385d9b9ff6619de89c88093",
+    "fileName": "eval-jinja2-cve-2024-22195.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-jinja2-cve-2024-22195",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: jinja2 3.1.2 is affected by CVE-2024-22195. Fixed version: 3.1.3. Check requirements, poetry.lock, or Pipfile.lock for jinja2, then regenerate the lockfile."
+      }
+    ]
+  },
+  {
+    "fileMd5": "cd9d0b380f6bba78e8d7692e815fbc85",
+    "fileName": "eval-werkzeug-cve-2023-25577.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-werkzeug-cve-2023-25577",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: werkzeug 2.2.2 is affected by CVE-2023-25577. Fixed version: 2.2.3. Check requirements, poetry.lock, or Pipfile.lock for werkzeug, then regenerate the lockfile."
+      }
+    ]
+  },
+  {
+    "fileMd5": "e626eefead74af126446f400bf220bc2",
+    "fileName": "eval-tornado-cve-2023-28370.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-tornado-cve-2023-28370",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: tornado 6.2 is affected by CVE-2023-28370. Fixed version: 6.3.2. Check requirements, poetry.lock, or Pipfile.lock for tornado, then regenerate the lockfile."
+      }
+    ]
+  },
+  {
+    "fileMd5": "19bd34fca9ccc63f172eac52f178a487",
+    "fileName": "eval-sqlalchemy-cve-2023-30608.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-sqlalchemy-cve-2023-30608",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: sqlalchemy 1.4.45 is affected by CVE-2023-30608. Fixed version: 1.4.46. Check requirements, poetry.lock, or Pipfile.lock for sqlalchemy, then regenerate the lockfile."
+      }
+    ]
+  },
+  {
+    "fileMd5": "faa001d56006f7df632bf0d9cc33da8f",
+    "fileName": "eval-pyjwt-cve-2022-29217.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-pyjwt-cve-2022-29217",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: pyjwt 2.6.0 is affected by CVE-2022-29217. Fixed version: 2.4.0. Check requirements, poetry.lock, or Pipfile.lock for pyjwt, then regenerate the lockfile."
+      }
+    ]
+  },
+  {
+    "fileMd5": "6704326f62547768e25886dd2d00de7e",
+    "fileName": "eval-paramiko-cve-2022-24302.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-paramiko-cve-2022-24302",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: paramiko 2.11.0 is affected by CVE-2022-24302. Fixed version: 2.12.0. Check requirements, poetry.lock, or Pipfile.lock for paramiko, then regenerate the lockfile."
+      }
+    ]
+  },
+  {
+    "fileMd5": "3965379265e1c7b31a4b68ac04d6690c",
+    "fileName": "eval-gunicorn-cve-2024-1135.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-gunicorn-cve-2024-1135",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: gunicorn 20.1.0 is affected by CVE-2024-1135. Fixed version: 21.2.0. Check requirements, poetry.lock, or Pipfile.lock for gunicorn, then regenerate the lockfile."
+      }
+    ]
+  },
+  {
+    "fileMd5": "a43e5b3bb65241bf5c85080500bb7e7c",
+    "fileName": "eval-aiohttp-cve-2024-23334.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-aiohttp-cve-2024-23334",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: aiohttp 3.8.4 is affected by CVE-2024-23334. Fixed version: 3.9.2. Check requirements, poetry.lock, or Pipfile.lock for aiohttp, then regenerate the lockfile."
+      }
+    ]
+  },
+  {
+    "fileMd5": "75258b1ecc5792ee7232c872078b6206",
+    "fileName": "eval-tensorflow-cve-2023-25667.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-tensorflow-cve-2023-25667",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: tensorflow 2.12.0 is affected by CVE-2023-25667. Fixed version: 2.12.1. Check requirements, poetry.lock, or Pipfile.lock for tensorflow, then regenerate the lockfile."
+      }
+    ]
+  },
+  {
+    "fileMd5": "8b9187cf02e432ada9a502e860d88466",
+    "fileName": "eval-github-com-gin-gonic-gin-cve-2023-29401.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-github-com-gin-gonic-gin-cve-2023-29401",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: github.com/gin-gonic/gin 1.7.7 is affected by CVE-2023-29401. Fixed version: 1.8.2. Check go.mod and go.sum for github.com/gin-gonic/gin, then run go get and go mod tidy."
+      }
+    ]
+  },
+  {
+    "fileMd5": "40f913cef6bedde5b72c6b548345bce3",
+    "fileName": "eval-github-com-gorilla-websocket-cve-2020-27813.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-github-com-gorilla-websocket-cve-2020-27813",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: github.com/gorilla/websocket 1.4.2 is affected by CVE-2020-27813. Fixed version: 1.5.0. Check go.mod and go.sum for github.com/gorilla/websocket, then run go get and go mod tidy."
+      }
+    ]
+  },
+  {
+    "fileMd5": "515d2facf90fabd75eccc007bc668625",
+    "fileName": "eval-github-com-docker-docker-cve-2022-36109.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-github-com-docker-docker-cve-2022-36109",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: github.com/docker/docker 20.10.12 is affected by CVE-2022-36109. Fixed version: 20.10.18. Check go.mod and go.sum for github.com/docker/docker, then run go get and go mod tidy."
+      }
+    ]
+  },
+  {
+    "fileMd5": "4dc7a0d310820e50464c8d2a58b37694",
+    "fileName": "eval-github-com-containerd-containerd-cve-2023-25173.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-github-com-containerd-containerd-cve-2023-25173",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: github.com/containerd/containerd 1.6.8 is affected by CVE-2023-25173. Fixed version: 1.6.18. Check go.mod and go.sum for github.com/containerd/containerd, then run go get and go mod tidy."
+      }
+    ]
+  },
+  {
+    "fileMd5": "7dd730fc0b7cadbbd21f303c4a243e07",
+    "fileName": "eval-github-com-hashicorp-go-getter-cve-2022-30321.md",
+    "userId": "1",
+    "orgTag": "eval",
+    "isPublic": true,
+    "ingestionTraceId": "eval-sca-github-com-hashicorp-go-getter-cve-2022-30321",
+    "chunks": [
+      {
+        "chunkId": 1,
+        "textContent": "SCA evidence: github.com/hashicorp/go-getter 1.6.1 is affected by CVE-2022-30321. Fixed version: 1.7.0. Check go.mod and go.sum for github.com/hashicorp/go-getter, then run go get and go mod tidy."
+      }
+    ]
   }
 ]

@@ -123,8 +123,8 @@ class RagEvalCorpusImportServiceTest {
 
         RagEvalCorpusImportResult result = service.importDefaultCorpus();
 
-        assertEquals(50, result.totalDocuments());
-        assertEquals(50, result.indexedChunks());
+        assertEquals(100, result.totalDocuments());
+        assertEquals(100, result.indexedChunks());
         assertFalse(result.source().isBlank());
     }
 

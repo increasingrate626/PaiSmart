@@ -154,6 +154,7 @@ def evaluate_cases(cases: list[dict[str, Any]], thresholds: Thresholds, skip_fai
     for case in cases:
         citation_score, citation_hits = citation_accuracy(case)
         fixed_score, fixed_hits = fixed_version_accuracy(case)
+        recall_score, recall_hits = recall_at_k(case, 8)
         case_id = case.get("caseId")
         result = {
             "caseId": case_id,
@@ -164,8 +165,10 @@ def evaluate_cases(cases: list[dict[str, Any]], thresholds: Thresholds, skip_fai
             "faithfulnessScore": faithfulness_scores.get(str(case_id), 0.0),
             "citationAccuracy": citation_score,
             "fixedVersionAccuracy": fixed_score,
+            "recallAt8": recall_score,
             "matchedEvidence": citation_hits,
             "matchedFixedVersions": fixed_hits,
+            "matchedRecallAt8Evidence": recall_hits,
         }
         results.append(result)
     return results
@@ -219,6 +222,15 @@ def citation_accuracy(case: dict[str, Any]) -> tuple[float, list[str]]:
     return len(matched) / len(expected), matched
 
 
+def recall_at_k(case: dict[str, Any], k: int) -> tuple[float, list[str]]:
+    expected = list_values(case.get("expectedEvidence"))
+    if not expected:
+        return 1.0, []
+    actual_ids = evidence_ids(selected_evidence_items(case.get("selectedEvidence"))[:max(k, 0)])
+    matched = [item for item in expected if item in actual_ids]
+    return len(matched) / len(expected), matched
+
+
 def fixed_version_accuracy(case: dict[str, Any]) -> tuple[float, list[str]]:
     expected = list_values(case.get("expectedFixedVersions"))
     if not expected:
@@ -232,8 +244,10 @@ def evaluate_quality_gate(case_results: list[dict[str, Any]], thresholds: Thresh
     faithfulness_avg = average([case["faithfulnessScore"] for case in case_results])
     citation_values = [case["citationAccuracy"] for case in case_results if case["expectedEvidence"]]
     fixed_values = [case["fixedVersionAccuracy"] for case in case_results if case["expectedFixedVersions"]]
+    recall_at_8_values = [case.get("recallAt8", 1.0) for case in case_results if case["expectedEvidence"]]
     citation_avg = average(citation_values)
     fixed_avg = average(fixed_values)
+    recall_at_8_avg = average(recall_at_8_values)
 
     failures = []
     if faithfulness_avg < thresholds.faithfulness:
@@ -257,6 +271,7 @@ def evaluate_quality_gate(case_results: list[dict[str, Any]], thresholds: Thresh
         "averageFaithfulness": faithfulness_avg,
         "averageCitationAccuracy": citation_avg,
         "averageFixedVersionAccuracy": fixed_avg,
+        "averageRecallAt8": recall_at_8_avg,
     }
 
 

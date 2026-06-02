@@ -37,6 +37,7 @@ node_modules
 /.vscode
 .claude/
 .qoder/
+AGENTS.md
 
 # Logs
 logs

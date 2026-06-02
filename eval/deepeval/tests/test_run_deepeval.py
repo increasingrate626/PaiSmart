@@ -33,6 +33,30 @@ def test_fixed_version_accuracy_is_case_insensitive():
     assert matched == ["2.15.0"]
 
 
+def test_recall_at_k_uses_only_top_k_selected_evidence():
+    case = {
+        "expectedEvidence": ["file-a:1", "file-b:2"],
+        "selectedEvidence": [
+            {"chunkId": "file-a:1", "textContent": "hit in top 1"},
+            {"chunkId": "noise:1", "textContent": "noise"},
+            {"chunkId": "noise:2", "textContent": "noise"},
+            {"chunkId": "noise:3", "textContent": "noise"},
+            {"chunkId": "noise:4", "textContent": "noise"},
+            {"chunkId": "noise:5", "textContent": "noise"},
+            {"chunkId": "noise:6", "textContent": "noise"},
+            {"chunkId": "noise:7", "textContent": "noise"},
+            {"chunkId": "file-b:2", "textContent": "hit after top 8"},
+        ],
+        "answer": "The answer cites (source#9: late.txt)",
+        "referenceMapping": {"9": "file-b:2"},
+    }
+
+    score, matched = run_deepeval.recall_at_k(case, 8)
+
+    assert score == 0.5
+    assert matched == ["file-a:1"]
+
+
 def test_build_test_case_payload_prefers_selected_evidence_text():
     case = {
         "caseId": 1,
@@ -47,6 +71,35 @@ def test_build_test_case_payload_prefers_selected_evidence_text():
     assert payload["input"] == "Is log4j affected?"
     assert payload["actual_output"] == "Use 2.15.0"
     assert payload["retrieval_context"] == ["selected evidence"]
+
+
+def test_quality_gate_reports_average_recall_at_8_without_gate_failure():
+    summary = run_deepeval.evaluate_quality_gate(
+        [
+            {
+                "caseId": 1,
+                "faithfulnessScore": 1.0,
+                "citationAccuracy": 1.0,
+                "fixedVersionAccuracy": 1.0,
+                "recallAt8": 0.5,
+                "expectedEvidence": ["file-a:1"],
+                "expectedFixedVersions": [],
+            },
+            {
+                "caseId": 2,
+                "faithfulnessScore": 1.0,
+                "citationAccuracy": 1.0,
+                "fixedVersionAccuracy": 1.0,
+                "recallAt8": 1.0,
+                "expectedEvidence": ["file-b:2"],
+                "expectedFixedVersions": [],
+            },
+        ],
+        run_deepeval.Thresholds(),
+    )
+
+    assert summary["qualityGatePassed"] is True
+    assert summary["averageRecallAt8"] == 0.75
 
 
 def test_quality_gate_fails_on_average_threshold_and_zero_case_metric():

@@ -148,7 +148,7 @@ class RagEvalCaseImportServiceTest {
 
         RagEvalCaseImportResult result = service.importDefaultCases();
 
-        assertEquals(50, result.totalCases());
+        assertEquals(100, result.totalCases());
         assertEquals(result.totalCases(), result.insertedCases());
         assertEquals(0, result.updatedCases());
         assertEquals(0, result.skippedCases());

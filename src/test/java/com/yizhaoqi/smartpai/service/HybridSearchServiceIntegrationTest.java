@@ -112,6 +112,75 @@ class HybridSearchServiceIntegrationTest {
     }
 
     @Test
+    void searchWithPermissionAddsScaBoostsToTextBranchAndKeepsPermissionFilters() throws Exception {
+        String query = "golang org x crypto cve 2023 48795 v0.16.0";
+        when(embeddingClient.embed(List.of(query))).thenReturn(List.of(new float[]{0.1f, 0.2f}));
+        when(esClient.search(anySearchFunction(), eq(EsDocument.class))).thenAnswer(invocation -> {
+            SearchRequest request = buildRequest(invocation.getArgument(0));
+            capturedRequests.add(request);
+            if (isVectorRequest(request)) {
+                return response(hit(doc("file-vector", 1, "vector result", "trc-vector"), 0.6));
+            }
+            return response(hit(doc("file-text", 1, "text result", "trc-text"), 0.7));
+        });
+
+        service.searchWithPermission(query, "alice", 8);
+
+        assertEquals(2, capturedRequests.size());
+        String textRequest = requestText(capturedRequests.get(1));
+        assertTrue(textRequest.contains("CVE-2023-48795"));
+        assertTrue(textRequest.contains("golang.org/x/crypto"));
+        assertTrue(textRequest.contains("v0.16.0"));
+        assertTrue(textRequest.contains("boost"));
+        assertTrue(textRequest.contains("userId"));
+        assertTrue(textRequest.contains("public"));
+        assertTrue(textRequest.contains("orgTag"));
+    }
+
+    @Test
+    void searchWithPermissionPrioritizesExactScaTextHitsBeforeRrfMerge() throws Exception {
+        String query = "snakeyaml cve 2022 1471 snakeyaml 1.33 CVE-2022-1471";
+        when(embeddingClient.embed(List.of(query))).thenReturn(List.of(new float[]{0.1f, 0.2f}));
+        when(esClient.search(anySearchFunction(), eq(EsDocument.class))).thenAnswer(invocation -> {
+            SearchRequest request = buildRequest(invocation.getArgument(0));
+            capturedRequests.add(request);
+            if (isVectorRequest(request)) {
+                return response(hit(doc("file-vector", 1, "unrelated CVE-2022-40152", "trc-vector"), 0.99));
+            }
+            return response(
+                    hit(doc("file-text-other", 1, "SCA unrelated CVE-2022-40152", "trc-other"), 0.9),
+                    hit(doc("file-exact", 1, "SCA snakeyaml 1.33 CVE-2022-1471 fixed in 2.0", "trc-exact"), 5.0)
+            );
+        });
+
+        List<SearchResult> results = service.searchWithPermission(query, "alice", 8);
+
+        assertEquals("file-exact", results.get(0).getFileMd5());
+        assertTrue(results.get(0).getScore() > results.get(1).getScore());
+    }
+
+    @Test
+    void searchWithPermissionPrioritizesExactScaHitsOverUnrelatedDualBranchHits() throws Exception {
+        String query = "snakeyaml cve 2022 1471 snakeyaml 1.33 CVE-2022-1471";
+        when(embeddingClient.embed(List.of(query))).thenReturn(List.of(new float[]{0.1f, 0.2f}));
+        when(esClient.search(anySearchFunction(), eq(EsDocument.class))).thenAnswer(invocation -> {
+            SearchRequest request = buildRequest(invocation.getArgument(0));
+            capturedRequests.add(request);
+            if (isVectorRequest(request)) {
+                return response(hit(doc("file-unrelated", 1, "SCA unrelated CVE-2022-40152", "trc-unrelated"), 0.99));
+            }
+            return response(
+                    hit(doc("file-unrelated", 1, "SCA unrelated CVE-2022-40152", "trc-unrelated"), 0.9),
+                    hit(doc("file-exact", 1, "SCA snakeyaml 1.33 CVE-2022-1471 fixed in 2.0", "trc-exact"), 5.0)
+            );
+        });
+
+        List<SearchResult> results = service.searchWithPermission(query, "alice", 8);
+
+        assertEquals("file-exact", results.get(0).getFileMd5());
+    }
+
+    @Test
     void searchWithPermissionFallsBackToTextOnlyWhenEmbeddingReturnsEmpty() throws Exception {
         when(embeddingClient.embed(List.of("plain text"))).thenReturn(List.of());
         when(esClient.search(anySearchFunction(), eq(EsDocument.class))).thenAnswer(invocation -> {
@@ -127,6 +196,29 @@ class HybridSearchServiceIntegrationTest {
         assertEquals(1, capturedRequests.size());
         assertFalse(isVectorRequest(capturedRequests.get(0)));
         verify(esClient, times(1)).search(anySearchFunction(), eq(EsDocument.class));
+    }
+
+    @Test
+    void textOnlyFallbackAddsScaBoostsWhenEmbeddingReturnsEmpty() throws Exception {
+        String query = "commons text cve 2022 42889 1.9";
+        when(embeddingClient.embed(List.of(query))).thenReturn(List.of());
+        when(esClient.search(anySearchFunction(), eq(EsDocument.class))).thenAnswer(invocation -> {
+            SearchRequest request = buildRequest(invocation.getArgument(0));
+            capturedRequests.add(request);
+            return response(hit(doc("file-t", 9, "text only", "trc-t"), 0.8));
+        });
+
+        service.searchWithPermission(query, "alice", 3);
+
+        assertEquals(1, capturedRequests.size());
+        String request = requestText(capturedRequests.get(0));
+        assertTrue(request.contains("CVE-2022-42889"));
+        assertTrue(request.contains("commons-text"));
+        assertTrue(request.contains("1.9"));
+        assertTrue(request.contains("boost"));
+        assertTrue(request.contains("userId"));
+        assertTrue(request.contains("public"));
+        assertTrue(request.contains("orgTag"));
     }
 
     @Test
