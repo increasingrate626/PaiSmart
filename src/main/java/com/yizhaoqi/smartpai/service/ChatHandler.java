@@ -37,6 +37,7 @@ public class ChatHandler {
     private final RedisTemplate<String, String> redisTemplate;
     private final AgenticRagService agenticRagService;
     private final DeepSeekClient deepSeekClient;
+    private final ChatIntentGuard chatIntentGuard;
     private final ObjectMapper objectMapper;
 
     private final Map<String, StringBuilder> responseBuilders = new ConcurrentHashMap<>();
@@ -48,10 +49,12 @@ public class ChatHandler {
 
     public ChatHandler(RedisTemplate<String, String> redisTemplate,
                        AgenticRagService agenticRagService,
-                       DeepSeekClient deepSeekClient) {
+                       DeepSeekClient deepSeekClient,
+                       ChatIntentGuard chatIntentGuard) {
         this.redisTemplate = redisTemplate;
         this.agenticRagService = agenticRagService;
         this.deepSeekClient = deepSeekClient;
+        this.chatIntentGuard = chatIntentGuard;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -72,6 +75,19 @@ public class ChatHandler {
 
             CompletableFuture<String> responseFuture = new CompletableFuture<>();
             responseFutures.put(sessionId, responseFuture);
+
+            ChatIntentGuard.Decision routeDecision = chatIntentGuard.decide(userMessage);
+            logger.info("chat_intent_route sessionId={} chatTraceId={} userId={} route={} reason={} messageLength={}",
+                    sessionId,
+                    chatTraceId,
+                    userId,
+                    routeDecision.route(),
+                    routeDecision.reason(),
+                    userMessage != null ? userMessage.length() : 0);
+            if (routeDecision.route() == ChatIntentGuard.ChatRoute.SMALL_TALK) {
+                handleSmallTalk(session, conversationId, userId, userMessage, routeDecision, responseFuture, chatTraceId);
+                return;
+            }
 
             List<Map<String, String>> history = getConversationHistory(conversationId);
             AgenticRagResult ragResult = agenticRagService.run(
@@ -95,6 +111,26 @@ public class ChatHandler {
             cleanupSession(sessionId);
         } finally {
             TraceContext.clearTraceContext();
+        }
+    }
+
+    private void handleSmallTalk(WebSocketSession session,
+                                 String conversationId,
+                                 String userId,
+                                 String userMessage,
+                                 ChatIntentGuard.Decision routeDecision,
+                                 CompletableFuture<String> responseFuture,
+                                 String chatTraceId) {
+        String sessionId = session.getId();
+        clearReferenceMappingsOnly(sessionId);
+        String reply = routeDecision.reply();
+        handleStreamChunk(session, reply);
+        if (responseFuture.complete(reply)) {
+            sendCompletionNotification(session, chatTraceId);
+            updateConversationHistory(conversationId, userMessage, reply);
+            logger.info("Chat small-talk completed: userId={}, sessionId={}, chatTraceId={}, reason={}, responseLength={}",
+                    userId, sessionId, chatTraceId, routeDecision.reason(), reply.length());
+            cleanupSession(sessionId);
         }
     }
 
@@ -297,6 +333,12 @@ public class ChatHandler {
         }
         sessionReferenceIngestionTraceMappings.put(sessionId, traceMapping);
         logger.info("Reference ingestion trace mapping saved: sessionId={}, size={}", sessionId, traceMapping.size());
+    }
+
+    private void clearReferenceMappingsOnly(String sessionId) {
+        sessionReferenceMappings.remove(sessionId);
+        sessionReferenceIngestionTraceMappings.remove(sessionId);
+        logger.info("Reference mapping cleared for small-talk route: sessionId={}", sessionId);
     }
 
     private void sendResponseChunk(WebSocketSession session, String chunk) {

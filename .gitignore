@@ -37,6 +37,7 @@ node_modules
 /.vscode
 .claude/
 .qoder/
+AGENTS.md
 
 # Logs
 logs
@@ -95,3 +96,4 @@ homepage/.cache/
 # Python generated files
 __pycache__/
 *.py[cod]
+.deepeval/

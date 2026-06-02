@@ -79,7 +79,40 @@ class ChatHandlerTest {
             return null;
         }).when(session).sendMessage(any(TextMessage.class));
 
-        chatHandler = new ChatHandler(redisTemplate, agenticRagService, deepSeekClient);
+        chatHandler = new ChatHandler(redisTemplate, agenticRagService, deepSeekClient, new ChatIntentGuard());
+    }
+
+    @Test
+    void smallTalkSkipsRagAndFinalLlmButStillStreamsAndSavesHistory() throws Exception {
+        chatHandler.processMessage("alice", "你好", session);
+
+        verify(agenticRagService, never()).run(any());
+        verify(deepSeekClient, never()).streamResponse(anyString(), anyString(), any(), any(), any());
+        assertTrue(sentMessages.stream().anyMatch(message ->
+                message.contains("\"chunk\"")
+                        && message.contains("PaiSmart SCA 安全助手")));
+        assertTrue(sentMessages.stream().anyMatch(message ->
+                message.contains("\"type\":\"completion\"")
+                        && message.contains("\"status\":\"finished\"")));
+        assertEquals(null, chatHandler.getReferenceMd5("session-1", 1));
+        assertTrue(savedConversation.get().contains("PaiSmart SCA 安全助手"));
+
+        List<Map<String, String>> history = objectMapper.readValue(savedConversation.get(), new TypeReference<>() {
+        });
+        assertEquals("user", history.get(0).get("role"));
+        assertEquals("你好", history.get(0).get("content"));
+        assertEquals("assistant", history.get(1).get("role"));
+    }
+
+    @Test
+    void scaQuestionWithGreetingStillUsesAgenticRag() {
+        AgenticRagResult ragResult = new AgenticRagResult("", List.of(), List.of(), Map.of());
+        when(agenticRagService.run(any())).thenReturn(ragResult);
+
+        chatHandler.processMessage("alice", "你好，log4j-core 2.14.1 是否受 CVE-2021-44228 影响", session);
+
+        verify(agenticRagService).run(any());
+        verify(deepSeekClient).streamResponse(anyString(), anyString(), any(), any(), any());
     }
 
     @Test
