@@ -50,6 +50,22 @@ On this local Windows machine, Maven dependencies should stay on D drive:
 & "C:\Users\Administrator\tools\apache-maven-3.9.10\bin\mvn.cmd" "-Dmaven.repo.local=D:\PaiSmart-deps\maven-repository" test
 ```
 
+### Git Hooks
+
+Repository hooks live in `.githooks`. Enable them once per local clone:
+
+```powershell
+.\scripts\setup-git-hooks.ps1
+```
+
+The current `pre-push` hook runs targeted Agentic RAG graph tests when related Java or backend config files changed:
+
+```powershell
+mvn test -Dtest=AgenticRagServiceTest,GraphSearchServiceTest,GraphExtractionServiceTest
+```
+
+Set `MAVEN_CMD` to override the Maven executable or `MAVEN_REPO_ARG` to override the local Maven repository argument.
+
 ### Frontend
 
 Vue 3, TypeScript, pnpm:
