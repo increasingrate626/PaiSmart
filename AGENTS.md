@@ -222,7 +222,7 @@ Important defaults:
 - System prompt requires Simplified Chinese, conclusion-first answers, and citations like `(source#N: filename)` / `(来源#N: filename)`
 - Agentic RAG can be toggled with `ai.agentic.enabled` / `PAISMART_AGENTIC_RAG_ENABLED`
 - Agentic RAG default limits: max search rounds `2`, first round topK `12`, rewrite round topK `8`, max subqueries `4`, max context chars `1600`
-- Agentic graph defaults: enabled `true`, extraction enabled `true`, max depth `2`, topK `8`
+- Agentic graph defaults: enabled `true`, extraction enabled `true`, max depth `3`, topK `8`
 
 Do not commit real API keys. Local machine secrets should stay in ignored files such as `src/main/resources/application-local.yml`, or in environment variables. `application-local.yml` is intentionally ignored by `.gitignore`.
 

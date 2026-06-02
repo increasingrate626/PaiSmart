@@ -327,7 +327,9 @@ class AgenticRagServiceTest {
 
         assertTrue(ragResult.getFinalContext().contains("[GRAPH#1] log4j-core 2.14.1 --AFFECTED_BY--> CVE-2021-44228"));
         assertTrue(ragResult.getReferenceMapping().containsValue("file-graph"));
-        verify(graphSearchService).searchWithPermission(any(), eq("alice"), eq(5));
+        ArgumentCaptor<GraphSearchRequest> captor = ArgumentCaptor.forClass(GraphSearchRequest.class);
+        verify(graphSearchService).searchWithPermission(captor.capture(), eq("alice"), eq(5));
+        assertEquals(3, captor.getValue().getMaxDepth());
     }
 
     @Test

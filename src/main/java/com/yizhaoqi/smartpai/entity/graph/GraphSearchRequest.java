@@ -10,5 +10,5 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class GraphSearchRequest {
     private AgentEntities entities;
-    private int maxDepth = 2;
+    private int maxDepth = 3;
 }

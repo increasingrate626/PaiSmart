@@ -61,7 +61,7 @@ public class AiProperties {
     @Data
     public static class Graph {
         private boolean enabled = true;
-        private int maxDepth = 2;
+        private int maxDepth = 3;
         private int topK = 5;
         private boolean extractionEnabled = true;
     }

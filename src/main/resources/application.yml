@@ -150,6 +150,6 @@ ai:
     max-evaluator-prompt-chars: ${PAISMART_AGENTIC_MAX_EVALUATOR_PROMPT_CHARS:6000}
     graph:
       enabled: ${PAISMART_AGENTIC_GRAPH_ENABLED:true}
-      max-depth: ${PAISMART_AGENTIC_GRAPH_MAX_DEPTH:2}
+      max-depth: ${PAISMART_AGENTIC_GRAPH_MAX_DEPTH:3}
       top-k: ${PAISMART_AGENTIC_GRAPH_TOP_K:5}
       extraction-enabled: ${PAISMART_AGENTIC_GRAPH_EXTRACTION_ENABLED:true}

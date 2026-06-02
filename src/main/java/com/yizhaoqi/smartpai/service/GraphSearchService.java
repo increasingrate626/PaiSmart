@@ -62,7 +62,7 @@ public class GraphSearchService {
             return List.of();
         }
 
-        int maxDepth = request.getMaxDepth() > 0 ? request.getMaxDepth() : 2;
+        int maxDepth = request.getMaxDepth() > 0 ? request.getMaxDepth() : 3;
         List<GraphSearchResult> results = new ArrayList<>();
         Set<Long> visited = new LinkedHashSet<>();
         List<GraphPath> frontier = seeds.stream()

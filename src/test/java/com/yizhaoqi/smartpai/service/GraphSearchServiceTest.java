@@ -72,10 +72,77 @@ class GraphSearchServiceTest {
     }
 
     @Test
+    void defaultDepthReachesComponentVersionCveFixedVersionPath() {
+        setUpThreeHopLog4jPath();
+
+        AgentEntities entities = new AgentEntities();
+        entities.setComponents(List.of("log4j-core"));
+
+        GraphSearchRequest request = new GraphSearchRequest();
+        request.setEntities(entities);
+
+        List<GraphSearchResult> results = service.searchWithPermission(request, "alice", 8);
+
+        assertTrue(results.stream().anyMatch(result ->
+                result.getPathText().contains("log4j-core --HAS_VERSION--> 2.14.1 --AFFECTED_BY--> CVE-2021-44228 --FIXED_IN--> 2.15.0")));
+    }
+
+    @Test
+    void invalidDepthFallsBackToThreeAndReachesFixedVersionPath() {
+        setUpThreeHopLog4jPath();
+
+        AgentEntities entities = new AgentEntities();
+        entities.setComponents(List.of("log4j-core"));
+
+        List<GraphSearchResult> results = service.searchWithPermission(new GraphSearchRequest(entities, 0), "alice", 8);
+
+        assertTrue(results.stream().anyMatch(result ->
+                result.getPathText().contains("log4j-core --HAS_VERSION--> 2.14.1 --AFFECTED_BY--> CVE-2021-44228 --FIXED_IN--> 2.15.0")));
+    }
+
+    @Test
+    void explicitDepthTwoStillStopsBeforeFixedVersion() {
+        setUpThreeHopLog4jPath();
+
+        AgentEntities entities = new AgentEntities();
+        entities.setComponents(List.of("log4j-core"));
+
+        List<GraphSearchResult> results = service.searchWithPermission(new GraphSearchRequest(entities, 2), "alice", 8);
+
+        assertTrue(results.stream().anyMatch(result ->
+                result.getPathText().contains("log4j-core --HAS_VERSION--> 2.14.1 --AFFECTED_BY--> CVE-2021-44228")));
+        assertTrue(results.stream().noneMatch(result -> result.getPathText().contains("2.15.0")));
+    }
+
+    @Test
     void returnsEmptyWhenNoScaEntitiesArePresent() {
         List<GraphSearchResult> results = service.searchWithPermission(new GraphSearchRequest(new AgentEntities(), 2), "alice", 8);
 
         assertTrue(results.isEmpty());
+    }
+
+    private void setUpThreeHopLog4jPath() {
+        User user = new User();
+        user.setId(42L);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(orgTagCacheService.getUserEffectiveOrgTags("alice")).thenReturn(List.of("SEC"));
+
+        GraphNode component = node(1L, "COMPONENT", "log4j-core", "log4j-core");
+        GraphNode version = node(2L, "VERSION", "2.14.1", "2.14.1");
+        GraphNode cve = node(3L, "CVE", "CVE-2021-44228", "cve-2021-44228");
+        GraphNode fixedVersion = node(4L, "FIX_VERSION", "2.15.0", "2.15.0");
+
+        GraphEdge hasVersion = edge(1L, 2L, "HAS_VERSION");
+        GraphEdge affectedBy = edge(2L, 3L, "AFFECTED_BY");
+        GraphEdge fixedIn = edge(3L, 4L, "FIXED_IN");
+
+        when(nodeRepository.findAccessibleSeeds(anyList(), anyList(), eq("42"), eq(List.of("SEC")))).thenReturn(List.of(component));
+        when(edgeRepository.findAccessibleBySourceNodeIdIn(eq(List.of(1L)), eq("42"), eq(List.of("SEC")))).thenReturn(List.of(hasVersion));
+        when(edgeRepository.findAccessibleBySourceNodeIdIn(eq(List.of(2L)), eq("42"), eq(List.of("SEC")))).thenReturn(List.of(affectedBy));
+        when(edgeRepository.findAccessibleBySourceNodeIdIn(eq(List.of(3L)), eq("42"), eq(List.of("SEC")))).thenReturn(List.of(fixedIn));
+        when(nodeRepository.findAllById(eq(List.of(2L)))).thenReturn(List.of(version));
+        when(nodeRepository.findAllById(eq(List.of(3L)))).thenReturn(List.of(cve));
+        when(nodeRepository.findAllById(eq(List.of(4L)))).thenReturn(List.of(fixedVersion));
     }
 
     private GraphNode node(Long id, String type, String name, String normalizedName) {
